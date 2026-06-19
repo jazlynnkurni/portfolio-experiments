@@ -128,7 +128,20 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
   const processingRef = useRef(false);
   const lastSkierRef = useRef(-1);
   const [, setCarveVersion] = useState(0);
-  const bump = () => setCarveVersion((v) => v + 1);
+  const aliveRef = useRef(true);
+  const bump = () => {
+    if (aliveRef.current) setCarveVersion((v) => v + 1);
+  };
+  // in-flight heal animations, aborted on unmount so none write after teardown
+  const healAnims = useRef<Set<{ stop: () => void }>>(new Set());
+  useEffect(() => {
+    const anims = healAnims.current;
+    return () => {
+      aliveRef.current = false;
+      anims.forEach((a) => a.stop());
+      anims.clear();
+    };
+  }, []);
 
   // letters being healed over (backspaced): their grooves fill back in and fade
   const healingRef = useRef<
@@ -145,10 +158,14 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
 
   async function startHeal(entry: (typeof healingRef.current)[number]) {
     // groove retracts (pathLength back to 0) and lightens, like powder filling it
-    await Promise.all([
-      ...entry.progs.map((p) => animate(p, 0, { duration: 0.5, ease: "easeInOut" }).finished),
-      animate(entry.opacity, 0, { duration: 0.55, ease: "easeOut" }).finished,
-    ]);
+    const anims = [
+      ...entry.progs.map((p) => animate(p, 0, { duration: 0.5, ease: "easeInOut" })),
+      animate(entry.opacity, 0, { duration: 0.55, ease: "easeOut" }),
+    ];
+    anims.forEach((a) => healAnims.current.add(a));
+    await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+    anims.forEach((a) => healAnims.current.delete(a));
+    if (!aliveRef.current) return; // unmounted mid-heal: do not touch state
     healingRef.current = healingRef.current.filter((h) => h.id !== entry.id);
     bump();
   }
@@ -586,6 +603,26 @@ const Skier = forwardRef<
   );
   const emitAcc = useRef(0);
 
+  // in-flight async to abort on unmount, so nothing writes to detached refs
+  const pendingTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const liveAnims = useRef<Set<{ stop: () => void }>>(new Set());
+  function track<T extends { stop: () => void; finished: Promise<unknown> }>(a: T): T {
+    liveAnims.current.add(a);
+    a.finished.catch(() => {}).finally(() => liveAnims.current.delete(a));
+    return a;
+  }
+  useEffect(() => {
+    const timers = pendingTimers.current;
+    const anims = liveAnims.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+      anims.forEach((a) => a.stop());
+      anims.clear();
+      controls.stop();
+    };
+  }, [controls]);
+
   // activate one fleck at the board, kicked per the config (opposite travel, up)
   function spawnFleck(cfg: FleckCfg) {
     let idx = -1;
@@ -717,20 +754,27 @@ const Skier = forwardRef<
       if (sprayOn) {
         if (name === "flip") spawnBurst(12, FLIP_BURST); // puff on takeoff
         else if (name === "dodge") spawnBurst(10, { ...DODGE_BURST, vx: 46 * dir });
-        else if (name === "fall")
+        else if (name === "fall") {
           // biggest burst at the landing impact, a beat after the tip starts
-          window.setTimeout(() => spawnBurst(20, FALL_BURST), 180);
+          const t = setTimeout(() => {
+            pendingTimers.current.delete(t);
+            spawnBurst(20, FALL_BURST);
+          }, 180);
+          pendingTimers.current.add(t);
+        }
       }
 
       const plan = REACTIONS[name]({ pop: rider.w * 0.6, dir });
       const jobs: Promise<unknown>[] = [controls.start(plan.figure)];
       if (plan.speed) {
         jobs.push(
-          animate(speedFactor, plan.speed.to, {
-            duration: plan.speed.duration,
-            times: plan.speed.times,
-            ease: plan.speed.ease,
-          }).finished
+          track(
+            animate(speedFactor, plan.speed.to, {
+              duration: plan.speed.duration,
+              times: plan.speed.times,
+              ease: plan.speed.ease,
+            })
+          ).finished
         );
       }
       await Promise.all(jobs);
@@ -766,8 +810,8 @@ const Skier = forwardRef<
         };
         const glide = (t: { x: number; y: number }) =>
           Promise.all([
-            animate(x, t.x, { duration: 0.45, ease: "easeInOut" }).finished,
-            animate(y, t.y, { duration: 0.45, ease: "easeInOut" }).finished,
+            track(animate(x, t.x, { duration: 0.45, ease: "easeInOut" })).finished,
+            track(animate(y, t.y, { duration: 0.45, ease: "easeInOut" })).finished,
           ]);
         try {
           await glide(pointPx(strokes[0], 0)); // ski over to the letter start
@@ -775,17 +819,19 @@ const Skier = forwardRef<
             if (shouldCancel?.()) break;
             const st = strokes[k];
             const lenPx = (st.el.getTotalLength() * st.scale * csize) / 100;
-            await animate(0, 1, {
-              duration: Math.max(0.45, lenPx / CARVE_PX_SPEED),
-              ease: "easeInOut",
-              onUpdate: (v) => {
-                const p = pointPx(st, v);
-                x.set(p.x);
-                y.set(p.y);
-                st.prog.set(v); // reveal the groove at the skier
-                if (sprayOn && Math.random() < 0.5) spawnFleck(STEADY_CFG);
-              },
-            }).finished;
+            await track(
+              animate(0, 1, {
+                duration: Math.max(0.45, lenPx / CARVE_PX_SPEED),
+                ease: "easeInOut",
+                onUpdate: (v) => {
+                  const p = pointPx(st, v);
+                  x.set(p.x);
+                  y.set(p.y);
+                  st.prog.set(v); // reveal the groove at the skier
+                  if (sprayOn && Math.random() < 0.5) spawnFleck(STEADY_CFG);
+                },
+              })
+            ).finished;
             if (shouldCancel?.()) break;
             if (k + 1 < strokes.length) await glide(pointPx(strokes[k + 1], 0));
           }

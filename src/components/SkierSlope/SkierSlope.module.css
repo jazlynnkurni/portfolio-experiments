@@ -59,6 +59,30 @@
   filter: drop-shadow(1px 2px 1.5px rgba(74, 70, 64, 0.28));
 }
 
+/* Snow spray: zero-size anchor at the skier centre; flecks travel with him */
+.spray {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* One chunky snow fleck. The soft shadow gives it an edge against white snow */
+.fleck {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 1.5px rgba(120, 130, 150, 0.35);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
 /* Photoreal snow texture filling the square, behind the riders */
 .snow {
   position: absolute;

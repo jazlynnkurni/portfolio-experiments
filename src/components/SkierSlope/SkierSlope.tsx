@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  animate,
   motion,
   useAnimationControls,
   useAnimationFrame,
   useMotionValue,
+  type Easing,
+  type TargetAndTransition,
 } from "framer-motion";
 import SnowShader from "./SnowShader";
 import styles from "./SkierSlope.module.css";
@@ -36,25 +39,23 @@ type Rider = {
 };
 
 /**
- * 12 riders laid out to match the reference painting: positions flow along the
- * slope diagonal, and sizes grow toward the bottom for perspective. RIDERS[0]
- * is the interactive slider; its `left` sets the lane it descends, `top` is
- * unused since it enters from above the top edge.
+ * 8 riders, organically scattered (uneven heights, loose clusters, open gaps)
+ * so the snow texture breathes. Every rider is tappable and reacts on its own.
+ * `left` is each rider's lane; `top` is the start phase down the slope.
  */
-// lanes are spaced 8 apart (wider than a figure); phases and speeds are varied
+// lanes stay >=10 apart (well wider than a figure) so none overlap on descent;
+// the scatter comes from varied phases (top) rather than even lane spacing.
+// speed is a clear fast/moderate/slow mix so they read like real skiers, not a
+// formation; the interactive orange (index 0) stays moderate so it is easy to tap.
 const RIDERS: Rider[] = [
-  { top: 8, left: 54, w: 28, rot: -2, flip: false, color: "orange", speed: 1.15 },
-  { top: 30, left: 13, w: 26, rot: -5, flip: false, color: "yellow", speed: 0.85 },
-  { top: 15, left: 79, w: 24, rot: 3, flip: true, color: "blue", speed: 1.25 },
-  { top: 55, left: 38, w: 28, rot: -3, flip: false, color: "burgundy", speed: 0.95 },
-  { top: 72, left: 21, w: 26, rot: -4, flip: false, color: "blue", speed: 1.1 },
-  { top: 40, left: 62, w: 28, rot: 2, flip: false, color: "green", speed: 0.72 },
-  { top: 60, left: 95, w: 26, rot: 4, flip: true, color: "burgundy", speed: 1.2 },
-  { top: 85, left: 5, w: 28, rot: -3, flip: false, color: "orange", speed: 0.9 },
-  { top: 22, left: 46, w: 26, rot: 2, flip: true, color: "yellow", speed: 1.05 },
-  { top: 92, left: 30, w: 28, rot: -2, flip: false, color: "burgundy", speed: 1.0 },
-  { top: 5, left: 87, w: 24, rot: 3, flip: true, color: "blue", speed: 0.8 },
-  { top: 78, left: 70, w: 28, rot: 2, flip: false, color: "green", speed: 1.3 },
+  { top: 10, left: 50, w: 28, rot: -2, flip: false, color: "orange", speed: 1.0 },
+  { top: 18, left: 74, w: 26, rot: 3, flip: true, color: "blue", speed: 1.6 },
+  { top: 26, left: 22, w: 28, rot: -4, flip: false, color: "burgundy", speed: 0.65 },
+  { top: 46, left: 62, w: 28, rot: 2, flip: false, color: "green", speed: 1.1 },
+  { top: 40, left: 34, w: 28, rot: -3, flip: false, color: "yellow", speed: 1.45 },
+  { top: 56, left: 86, w: 26, rot: 3, flip: true, color: "orange", speed: 0.8 },
+  { top: 72, left: 10, w: 30, rot: -2, flip: true, color: "blue", speed: 1.25 },
+  { top: 84, left: 96, w: 30, rot: 2, flip: false, color: "green", speed: 0.9 },
 ];
 
 /**
@@ -66,6 +67,7 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
   const slopeRef = useRef<HTMLElement>(null);
   // square slope side length in px; the travel maths work in fractions of it
   const [size, setSize] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
     const el = slopeRef.current;
@@ -77,6 +79,14 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   return (
     <section
       ref={slopeRef}
@@ -86,25 +96,23 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
       {/* procedural GLSL snow surface, clipped to the rounded square */}
       <SnowShader className={styles.snow} />
 
-      {/* shared gradient defs so the 12 figures do not redeclare ids */}
+      {/* shared gradient defs so the figures do not redeclare ids */}
       <SkierDefs />
 
-      {/* all riders flow down-slope; wait for the measured size so they start placed */}
+      {/* every skier slides, reacts, and sprays on its own; wait for the size */}
       {size > 0 &&
         RIDERS.map((r, i) => (
-          <SlidingSkier
+          <Skier
             key={i}
             rider={r}
             size={size}
-            interactive={i === INTERACTIVE_INDEX}
+            spray
+            reducedMotion={reducedMotion}
           />
         ))}
     </section>
   );
 }
-
-/** Which rider reacts to taps. Reused per skier later. */
-const INTERACTIVE_INDEX = 0;
 
 /**
  * Self-contained jump-flip: a full 360 spin with a weighted pop up and
@@ -130,26 +138,139 @@ function flipAnimation(pop: number) {
   };
 }
 
+// ---- Tap reactions -------------------------------------------------------
+// Each reaction is a self-contained plan layered on top of the ongoing descent.
+// `figure` is the transform target for the figure element; `speed` optionally
+// modulates descent speed (only the fall loses then regains momentum).
+
+type ReactionName = "flip" | "fall" | "dodge";
+type ReactionCtx = { pop: number; dir: number };
+type ReactionPlan = {
+  figure: TargetAndTransition;
+  speed?: { to: number[]; duration: number; times?: number[]; ease?: Easing | Easing[] };
+};
+
+const cubic = (a: number, b: number, c: number, d: number) =>
+  [a, b, c, d] as [number, number, number, number];
+
+/** FLIP: full 360 with a weighted pop, settles, keeps sliding. */
+function flipReaction({ pop }: ReactionCtx): ReactionPlan {
+  return { figure: flipAnimation(pop) };
+}
+
+/**
+ * FALL + RECOVER: a quick tip to ~86deg, drop onto the snow, a beat on the
+ * ground, then an effortful push back upright. Descent slows hard during the
+ * stumble and eases back to normal on recovery, selling the lost momentum.
+ */
+function fallReaction({ pop }: ReactionCtx): ReactionPlan {
+  const drop = pop * 0.8;
+  return {
+    figure: {
+      rotate: [0, 86, 86, 80, 0],
+      y: [0, drop, drop, drop * 0.96, 0],
+      transition: {
+        duration: 1.4,
+        times: [0, 0.16, 0.58, 0.72, 1],
+        // quick tip, hold on the ground, then an effortful rise
+        ease: [cubic(0.3, 0, 0.2, 1), "linear", "linear", cubic(0.45, 0, 0.35, 1)],
+      },
+    },
+    speed: {
+      to: [1, 0.22, 0.22, 1],
+      duration: 1.4,
+      times: [0, 0.2, 0.66, 1],
+      ease: "easeInOut",
+    },
+  };
+}
+
+/**
+ * DODGE: a snappy sidestep away from the tap, with a slight lean into it, then
+ * eased back to the lane. The fastest, lightest reaction.
+ */
+function dodgeReaction({ dir }: ReactionCtx): ReactionPlan {
+  const shift = 18 * dir; // px, away from the tap side
+  return {
+    figure: {
+      x: [0, shift, shift, 0],
+      rotate: [0, 7 * dir, 7 * dir, 0], // lean into the dodge
+      transition: {
+        duration: 0.5,
+        times: [0, 0.28, 0.5, 1],
+        ease: [cubic(0.2, 0.8, 0.3, 1), "linear", cubic(0.4, 0, 0.4, 1)],
+      },
+    },
+  };
+}
+
+/** Reaction registry. Swapping these for Rive state triggers later is clean. */
+const REACTIONS: Record<ReactionName, (ctx: ReactionCtx) => ReactionPlan> = {
+  flip: flipReaction,
+  fall: fallReaction,
+  dodge: dodgeReaction,
+};
+
+/** Relative likelihood of each reaction on a tap. Tune freely. */
+const REACTION_WEIGHTS: Record<ReactionName, number> = {
+  flip: 40,
+  fall: 35,
+  dodge: 25,
+};
+
+// Weighted draw, excluding the last reaction so the same one never repeats.
+// Dropping the excluded weight and summing the rest re-normalizes implicitly.
+function pickReaction(exclude?: ReactionName | null): ReactionName {
+  const names = (Object.keys(REACTION_WEIGHTS) as ReactionName[]).filter(
+    (n) => n !== exclude
+  );
+  const total = names.reduce((sum, n) => sum + REACTION_WEIGHTS[n], 0);
+  let r = Math.random() * total;
+  for (const n of names) {
+    r -= REACTION_WEIGHTS[n];
+    if (r < 0) return n;
+  }
+  return names[names.length - 1];
+}
+
 // Travel tuning, all in fractions of the (square) slope side per second.
-const SLIDE_SPEED = 0.16; // slope-heights per second; a calm glide
+const SLIDE_SPEED = 0.11; // slope-heights per second; a calm glide, slow enough to tap and explore
 const DRIFT = -0.14; // leftward drift per unit of descent, following the slope diagonal
 const ENTER = -0.14; // respawn just above the top edge, off-view
 const EXIT = 1.16; // exit just below the bottom edge, off-view
 
+// ---- Snow spray (chunky flecks kicked off the back of the board) ---------
+// A pooled, transform-only particle trail. Velocities are px/sec, positions px
+// relative to the skier centre. Budgeted (hard cap per skier) to scale to 8.
+const SPRAY_MAX = 22; // hard cap of live flecks per skier (x8 budget)
+const SPRAY_GRAVITY = 210; // px/s^2 pulling flecks back down after they rise
+const STEADY_RATE = 18; // flecks/sec while sliding straight
+// vy is strongly negative (upward) so flecks launch UP off the board, decelerate
+// under gravity, reach an apex, then fall: a real upward spray, not a dribble down.
+type FleckCfg = { vx: number; vy: number; spread: number; up: number; lifeMin: number };
+const STEADY_CFG: FleckCfg = { vx: 14, vy: -66, spread: 34, up: 30, lifeMin: 0.44 };
+const FLIP_BURST: FleckCfg = { vx: 14, vy: -100, spread: 66, up: 46, lifeMin: 0.5 }; // upward puff
+const FALL_BURST: FleckCfg = { vx: 8, vy: -84, spread: 108, up: 46, lifeMin: 0.54 }; // biggest, wide
+const DODGE_BURST: FleckCfg = { vx: 42, vy: -74, spread: 40, up: 34, lifeMin: 0.44 }; // sideways
+
 /**
- * The one moving skier. Travel down-slope is the base motion, driven every
- * frame as a transform on the outer element. The flip (rotate + pop) plays on
- * a separate inner element, so it layers on top of the descent without ever
- * pausing or resetting it. Taps are ignored while a flip is already running.
+ * One self-contained skier. Travel down-slope is the base motion, driven every
+ * frame as a transform on the outer element. Reactions (rotate/pop/shift) play
+ * on a separate inner element, layered on top of the descent without ever
+ * pausing or resetting it. All slide and reaction state (guard, lastReaction)
+ * is per instance, so every skier reacts independently of the others. This is
+ * the one component to swap for a Rive-driven version later.
  */
-function SlidingSkier({
+function Skier({
   rider,
   size,
-  interactive = false,
+  spray = false,
+  reducedMotion = false,
 }: {
   rider: Rider;
   size: number;
-  interactive?: boolean;
+  spray?: boolean;
+  reducedMotion?: boolean;
 }) {
   // outer travel transform, in px, written directly without re-rendering React
   const x = useMotionValue(0);
@@ -162,12 +283,64 @@ function SlidingSkier({
   sizeRef.current = size;
 
   const controls = useAnimationControls();
-  const [isFlipping, setIsFlipping] = useState(false);
+  const figureRef = useRef<HTMLDivElement>(null);
+  // the last reaction this skier played, so the next tap never repeats it
+  const lastReaction = useRef<ReactionName | null>(null);
+  // descent-speed multiplier; only the fall reaction dips it below 1 then recovers
+  const speedFactor = useMotionValue(1);
+  const [isReacting, setIsReacting] = useState(false);
+
+  // snow spray: a pooled particle trail kicked off the board (reduced-motion off)
+  const sprayOn = spray && !reducedMotion;
+  const flecks = useRef<HTMLSpanElement[]>([]);
+  const particles = useRef(
+    Array.from({ length: SPRAY_MAX }, () => ({
+      active: false,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      life: 0,
+      maxLife: 0,
+    }))
+  );
+  const emitAcc = useRef(0);
+
+  // activate one fleck at the board, kicked per the config (opposite travel, up)
+  function spawnFleck(cfg: FleckCfg) {
+    let idx = -1;
+    for (let i = 0; i < SPRAY_MAX; i++) {
+      if (!particles.current[i].active) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return; // pool full: hard cap, never exceed the budget
+    const p = particles.current[idx];
+    const w = rider.w;
+    p.active = true;
+    p.maxLife = cfg.lifeMin + Math.random() * 0.18;
+    p.life = p.maxLife;
+    p.x = (Math.random() - 0.5) * 0.18 * w;
+    p.y = 0.42 * w + (Math.random() - 0.5) * 0.1 * w;
+    p.vx = cfg.vx + (Math.random() - 0.5) * cfg.spread;
+    p.vy = cfg.vy - Math.random() * cfg.up;
+    const node = flecks.current[idx];
+    if (node) {
+      const sz = 5 + Math.random() * 4; // chunky 5-9px flecks, not fine mist
+      node.style.width = `${sz}px`;
+      node.style.height = `${sz}px`;
+    }
+  }
+
+  function spawnBurst(count: number, cfg: FleckCfg) {
+    for (let i = 0; i < count; i++) spawnFleck(cfg);
+  }
 
   useAnimationFrame((_, delta) => {
     const s = sizeRef.current;
     if (!s) return;
-    let fy = travel.current + SLIDE_SPEED * rider.speed * (delta / 1000);
+    let fy = travel.current + SLIDE_SPEED * rider.speed * speedFactor.get() * (delta / 1000);
     if (fy > EXIT) fy = ENTER + (fy - EXIT); // wrap off-screen, carry the remainder
     travel.current = fy;
     // left IS the lane intercept; the shared DRIFT keeps every lane parallel,
@@ -175,19 +348,101 @@ function SlidingSkier({
     const fx = rider.left / 100 + DRIFT * fy;
     x.set(fx * s);
     y.set(fy * s);
+
+    if (!sprayOn) return;
+    const dt = delta / 1000;
+    // gentle steady emission, only while he is actually on the slope
+    if (fy > 0 && fy < 1) {
+      emitAcc.current += STEADY_RATE * dt;
+      while (emitAcc.current >= 1) {
+        spawnFleck(STEADY_CFG);
+        emitAcc.current -= 1;
+      }
+    }
+    // integrate + render every live fleck (transform/opacity only)
+    for (let i = 0; i < SPRAY_MAX; i++) {
+      const p = particles.current[i];
+      if (!p.active) continue;
+      p.vy += SPRAY_GRAVITY * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      const node = flecks.current[i];
+      if (p.life <= 0) {
+        p.active = false;
+        if (node) node.style.opacity = "0";
+        continue;
+      }
+      if (node) {
+        const k = p.life / p.maxLife;
+        node.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+        node.style.opacity = (Math.min(1, k * 1.8) * 0.95).toFixed(2);
+      }
+    }
   });
 
-  async function handleFlip() {
-    if (isFlipping) return;
-    setIsFlipping(true);
-    await controls.start(flipAnimation(rider.w * 0.6));
-    // a 360 lands where 0 started, so snap the value back for the next tap
-    controls.set({ rotate: 0, y: 0 });
-    setIsFlipping(false);
+  // one tap triggers one weighted-random reaction, layered over the descent
+  async function handleTap(
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: { point: { x: number; y: number } }
+  ) {
+    if (isReacting) return;
+    setIsReacting(true);
+    try {
+      // dodge away from the side the tap came from (fall back to a fixed side)
+      const rect = figureRef.current?.getBoundingClientRect();
+      const center = rect ? rect.left + rect.width / 2 : info.point.x;
+      const dir = info.point.x <= center ? 1 : -1;
+
+      const name = pickReaction(lastReaction.current);
+      lastReaction.current = name;
+
+      // spray bursts timed to each reaction
+      if (sprayOn) {
+        if (name === "flip") spawnBurst(12, FLIP_BURST); // puff on takeoff
+        else if (name === "dodge") spawnBurst(10, { ...DODGE_BURST, vx: 46 * dir });
+        else if (name === "fall")
+          // biggest burst at the landing impact, a beat after the tip starts
+          window.setTimeout(() => spawnBurst(20, FALL_BURST), 180);
+      }
+
+      const plan = REACTIONS[name]({ pop: rider.w * 0.6, dir });
+      const jobs: Promise<unknown>[] = [controls.start(plan.figure)];
+      if (plan.speed) {
+        jobs.push(
+          animate(speedFactor, plan.speed.to, {
+            duration: plan.speed.duration,
+            times: plan.speed.times,
+            ease: plan.speed.ease,
+          }).finished
+        );
+      }
+      await Promise.all(jobs);
+    } finally {
+      // always reset layered transforms; descent (outer x/y) is untouched
+      controls.set({ rotate: 0, x: 0, y: 0 });
+      speedFactor.set(1);
+      setIsReacting(false);
+    }
   }
 
   return (
     <motion.div className={styles.travel} style={{ x, y }}>
+      {spray && (
+        // particle layer sits before the figure so flecks read as kicked up
+        // from under the board, not floating in front of his body
+        <div className={styles.spray} aria-hidden="true">
+          {Array.from({ length: SPRAY_MAX }).map((_, i) => (
+            <span
+              key={i}
+              ref={(el) => {
+                if (el) flecks.current[i] = el;
+              }}
+              className={styles.fleck}
+            />
+          ))}
+        </div>
+      )}
       <div
         className={styles.place}
         style={{ transform: `translate(-50%, -50%) rotate(${rider.rot}deg) scaleX(${rider.flip ? -1 : 1})` }}
@@ -195,10 +450,11 @@ function SlidingSkier({
         {/* short trail trailing up-slope, travels with the skier */}
         <span className={styles.trail} aria-hidden="true" />
         <motion.div
+          ref={figureRef}
           className={styles.figure}
           animate={controls}
-          onTap={interactive ? handleFlip : undefined}
-          style={{ transformOrigin: "center center", cursor: interactive ? "pointer" : undefined }}
+          onTap={handleTap}
+          style={{ transformOrigin: "center center", cursor: "pointer" }}
         >
           <PlaceholderSkier width={rider.w} color={rider.color} />
         </motion.div>

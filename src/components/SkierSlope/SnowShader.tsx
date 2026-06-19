@@ -1,16 +1,21 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
 /**
  * Procedural snow surface rendered with a GLSL fragment shader. An fbm
  * heightfield of drifts is lit by one low raking light, so ridges highlight
- * and valleys fall into soft shadow. Palette stays near-white and low contrast
- * so it reads as sculpted snow, not rock. Its own painterly-digital look, not
- * a photo match. Rendered once (frameloop demand): no per-frame work, which
- * also satisfies prefers-reduced-motion since nothing animates.
+ * and valleys fall into soft shadow. On top of that, a separate low-frequency
+ * noise mask paints dappled sunlight: soft warm patches that slowly drift
+ * across the snow, like sun through moving cloud, while other areas stay in
+ * cooler shade. Palette stays near-white and low contrast so it reads as
+ * sculpted snow, not rock.
+ *
+ * Performance: the Canvas runs on demand and is driven at a capped low frame
+ * rate (the drift is slow, so ~30fps is plenty). Under prefers-reduced-motion
+ * it renders a single static frame with no drift.
  */
 
 // Fullscreen quad: pass the [-1,1] plane straight to clip space, ignore camera.
@@ -32,6 +37,12 @@ const fragmentShader = /* glsl */ `
   uniform float uShadowSoftness; // spread of the light-to-shadow transition
   uniform vec3 uHigh;            // warm-white highlight
   uniform vec3 uShadow;          // faint cool-grey shadow
+
+  uniform float uTime;           // seconds, drives the dapple drift
+  uniform float uPatchScale;     // size of the sunlight pools (low = bigger)
+  uniform float uDriftSpeed;     // how fast the patches travel
+  uniform float uDappleIntensity;// strength of lit vs shaded
+  uniform float uWarmth;         // warmth of the lit patches
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -84,13 +95,24 @@ const fragmentShader = /* glsl */ `
     float ndl = dot(n, L);
 
     // soft raking light: ridges face the light (bright), valleys shadow
-    float lit = smoothstep(-uShadowSoftness, uShadowSoftness, ndl);
-    vec3 col = mix(uShadow, uHigh, lit);
+    float litRidge = smoothstep(-uShadowSoftness, uShadowSoftness, ndl);
+    vec3 col = mix(uShadow, uHigh, litRidge);
 
     // subtle sheen so ridge crests glint
     vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
     float spec = pow(max(dot(n, H), 0.0), 28.0) * 0.10;
     col += spec;
+
+    // dappled drifting sunlight: a separate low-frequency mask, decorrelated
+    // from the ridge noise by a domain offset, drifting slowly over time
+    vec2 drift = vec2(uTime * uDriftSpeed, uTime * uDriftSpeed * 0.45);
+    float mask = fbm(vUv * uPatchScale + vec2(17.3, 9.1) + drift);
+    float sun = smoothstep(0.42, 0.72, mask); // patchy: big soft pools
+
+    // sunlit patches read brighter and a touch warmer; shade keeps current col
+    vec3 sunlit = col * (1.0 + 0.16 * uDappleIntensity)
+                + vec3(0.05, 0.032, 0.0) * (uWarmth * uDappleIntensity);
+    col = mix(col, sunlit, sun);
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -103,19 +125,31 @@ export type SnowUniforms = {
   shadowSoftness: number;
   high: string;
   shadow: string;
+  patchScale: number;
+  driftSpeed: number;
+  dappleIntensity: number;
+  warmth: number;
 };
 
 // Tunable defaults, lifted to props so the look can be adjusted by eye.
 const DEFAULTS: SnowUniforms = {
   lightDir: [0.72, 0.5, 0.42], // low raking light from the upper right
-  ridgeScale: 3.0, // larger, softer drifts
-  ridgeHeight: 0.3, // gentle relief so it stays snow, not rock
-  shadowSoftness: 0.8, // wide, soft light-to-shadow transition
-  high: "#FDFCF9", // warm white
-  shadow: "#E2E5EB", // faint cool grey
+  ridgeScale: 3.0,
+  ridgeHeight: 0.3,
+  shadowSoftness: 0.8,
+  high: "#FDFCF9",
+  shadow: "#E2E5EB",
+  patchScale: 1.6, // a few big sunlight pools across the square
+  driftSpeed: 0.018, // slow cloud-shadow drift
+  dappleIntensity: 0.85, // clearly visible but still snow, not spotlights
+  warmth: 1.0, // warmth of the lit patches
 };
 
-function SnowPlane({ settings }: { settings: SnowUniforms }) {
+const FPS = 30; // capped render rate; the drift is slow so this is plenty
+
+function SnowPlane({ settings, animate }: { settings: SnowUniforms; animate: boolean }) {
+  const invalidate = useThree((s) => s.invalidate);
+
   const uniforms = useMemo(
     () => ({
       uLightDir: { value: new THREE.Vector3(...settings.lightDir).normalize() },
@@ -124,9 +158,29 @@ function SnowPlane({ settings }: { settings: SnowUniforms }) {
       uShadowSoftness: { value: settings.shadowSoftness },
       uHigh: { value: new THREE.Color(settings.high) },
       uShadow: { value: new THREE.Color(settings.shadow) },
+      uTime: { value: 0 },
+      uPatchScale: { value: settings.patchScale },
+      uDriftSpeed: { value: settings.driftSpeed },
+      uDappleIntensity: { value: settings.dappleIntensity },
+      uWarmth: { value: settings.warmth },
     }),
     [settings]
   );
+
+  // drive the drift at a capped frame rate, or render one static frame
+  useEffect(() => {
+    if (!animate) {
+      uniforms.uTime.value = 0;
+      invalidate();
+      return;
+    }
+    const start = performance.now();
+    const tick = setInterval(() => {
+      uniforms.uTime.value = (performance.now() - start) / 1000;
+      invalidate();
+    }, 1000 / FPS);
+    return () => clearInterval(tick);
+  }, [animate, invalidate, uniforms]);
 
   return (
     <mesh>
@@ -147,6 +201,16 @@ export default function SnowShader({
   settings?: SnowUniforms;
   className?: string;
 }) {
+  // honour reduced-motion: no drift, just a single static frame
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   return (
     <Canvas
       className={className}
@@ -156,7 +220,7 @@ export default function SnowShader({
       gl={{ antialias: true }}
       style={{ position: "absolute", inset: 0 }}
     >
-      <SnowPlane settings={settings} />
+      <SnowPlane settings={settings} animate={!reducedMotion} />
     </Canvas>
   );
 }

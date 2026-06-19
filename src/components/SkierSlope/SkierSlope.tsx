@@ -1,17 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import {
   animate,
   motion,
+  motionValue,
   useAnimationControls,
   useAnimationFrame,
   useMotionValue,
   type Easing,
+  type MotionValue,
   type TargetAndTransition,
 } from "framer-motion";
 import SnowShader from "./SnowShader";
+import { CarvedStroke, GLYPHS, GLYPH_SCALE, letterLayout } from "./Letters";
 import styles from "./SkierSlope.module.css";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// A stroke handed to a recruited skier: the groove path element, its letter
+// transform (so local points map to px), and the reveal motion value to drive.
+type CarveStroke = {
+  el: SVGPathElement;
+  gx: number;
+  gy: number;
+  scale: number;
+  prog: MotionValue<number>;
+};
+
+// Imperative handle the carve coordinator uses to recruit a skier.
+type SkierHandle = {
+  getPos: () => { x: number; y: number };
+  isAvailable: () => boolean;
+  carve: (
+    strokes: CarveStroke[],
+    size: number,
+    shouldCancel?: () => boolean
+  ) => Promise<void>;
+};
+
+const CARVE_PX_SPEED = 80; // px/sec a recruited skier traces a stroke
 
 type SkierSlopeProps = {
   variant?: "full" | "embed";
@@ -36,6 +71,9 @@ type Rider = {
   flip: boolean;
   color: JacketColor;
   speed: number; // multiplier on the base slide speed, so each drops differently
+  // optional carve: a lateral weave layered into base travel. amp in px, freq in
+  // weave-cycles per descent, phase to desync, lean in degrees of edge into turns.
+  carve?: { amp: number; freq: number; phase: number; lean: number };
 };
 
 /**
@@ -47,14 +85,16 @@ type Rider = {
 // the scatter comes from varied phases (top) rather than even lane spacing.
 // speed is a clear fast/moderate/slow mix so they read like real skiers, not a
 // formation; the interactive orange (index 0) stays moderate so it is easy to tap.
+// carvers (index 3,4,5,6) all sit between straight lanes, so two weaves can never
+// converge; amplitudes are kept within the lane gaps (verified by the overlap test).
 const RIDERS: Rider[] = [
   { top: 10, left: 50, w: 28, rot: -2, flip: false, color: "orange", speed: 1.0 },
   { top: 18, left: 74, w: 26, rot: 3, flip: true, color: "blue", speed: 1.6 },
   { top: 26, left: 22, w: 28, rot: -4, flip: false, color: "burgundy", speed: 0.65 },
-  { top: 46, left: 62, w: 28, rot: 2, flip: false, color: "green", speed: 1.1 },
-  { top: 40, left: 34, w: 28, rot: -3, flip: false, color: "yellow", speed: 1.45 },
-  { top: 56, left: 86, w: 26, rot: 3, flip: true, color: "orange", speed: 0.8 },
-  { top: 72, left: 10, w: 30, rot: -2, flip: true, color: "blue", speed: 1.25 },
+  { top: 46, left: 62, w: 28, rot: 2, flip: false, color: "green", speed: 1.1, carve: { amp: 20, freq: 1.2, phase: 0.8, lean: 10 } }, // wide, slow
+  { top: 40, left: 34, w: 28, rot: -3, flip: false, color: "yellow", speed: 1.45, carve: { amp: 16, freq: 3.0, phase: 1.7, lean: 12 } }, // tight, quick
+  { top: 56, left: 86, w: 26, rot: 3, flip: true, color: "orange", speed: 0.8, carve: { amp: 12, freq: 3.5, phase: 2.4, lean: 11 } }, // tight, quick
+  { top: 72, left: 10, w: 30, rot: -2, flip: true, color: "blue", speed: 1.25, carve: { amp: 18, freq: 1.5, phase: 0.0, lean: 9 } }, // wide, slow
   { top: 84, left: 96, w: 30, rot: 2, flip: false, color: "green", speed: 0.9 },
 ];
 
@@ -67,7 +107,180 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
   const slopeRef = useRef<HTMLElement>(null);
   // square slope side length in px; the travel maths work in fractions of it
   const [size, setSize] = useState(0);
+  const sizeRef = useRef(0);
+  sizeRef.current = size;
   const [reducedMotion, setReducedMotion] = useState(false);
+  // typed input: single lowercase word, letters only, hard cap 6
+  const [typedWord, setTypedWord] = useState("");
+  const wordRef = useRef("");
+  wordRef.current = typedWord;
+
+  // ---- carve coordination: recruit ambient skiers to trace each letter ----
+  // Single source of truth is typedWord. carveState[i] mirrors typedWord[i]
+  // exactly (same char) and tracks its reveal progress + status. The render
+  // draws GLYPHS[typedWord[i]], so a wrong/stale glyph can never appear.
+  const skierHandles = useRef<(SkierHandle | null)[]>([]);
+  const carveState = useRef<
+    { ch: string; status: "pending" | "carving" | "done"; progs: MotionValue<number>[] }[]
+  >([]);
+  const elRefs = useRef<Map<string, SVGPathElement | null>>(new Map());
+  const cancelRef = useRef<{ index: number; cancelled: boolean } | null>(null);
+  const processingRef = useRef(false);
+  const lastSkierRef = useRef(-1);
+  const [, setCarveVersion] = useState(0);
+  const bump = () => setCarveVersion((v) => v + 1);
+
+  // letters being healed over (backspaced): their grooves fill back in and fade
+  const healingRef = useRef<
+    {
+      id: number;
+      ch: string;
+      gx: number;
+      gy: number;
+      progs: MotionValue<number>[];
+      opacity: MotionValue<number>;
+    }[]
+  >([]);
+  const healId = useRef(0);
+
+  async function startHeal(entry: (typeof healingRef.current)[number]) {
+    // groove retracts (pathLength back to 0) and lightens, like powder filling it
+    await Promise.all([
+      ...entry.progs.map((p) => animate(p, 0, { duration: 0.5, ease: "easeInOut" }).finished),
+      animate(entry.opacity, 0, { duration: 0.55, ease: "easeOut" }).finished,
+    ]);
+    healingRef.current = healingRef.current.filter((h) => h.id !== entry.id);
+    bump();
+  }
+
+  function pickSkier(target: { x: number; y: number }) {
+    let best = -1;
+    let bestD = Infinity;
+    const consider = (allowLast: boolean) => {
+      skierHandles.current.forEach((h, i) => {
+        if (!h || !h.isAvailable()) return;
+        if (!allowLast && i === lastSkierRef.current) return;
+        const p = h.getPos();
+        const d = Math.hypot(p.x - target.x, p.y - target.y);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+    };
+    consider(false); // prefer a different skier than last time
+    if (best < 0) consider(true);
+    return best;
+  }
+
+  // carve exactly letter i; returns false to retry (no skier free yet)
+  async function carveOne(i: number): Promise<boolean> {
+    const want = wordRef.current[i];
+    const data = carveState.current[i];
+    if (!data || data.ch !== want) return true; // reconciled away: drop
+    const strokeCount = (GLYPHS[want] ?? []).length;
+    // wait for this letter's stroke paths to mount
+    for (let t = 0; t < 50; t++) {
+      let ready = strokeCount > 0;
+      for (let k = 0; k < strokeCount; k++) if (!elRefs.current.get(`${i}-${k}`)) ready = false;
+      if (ready) break;
+      await sleep(40);
+    }
+    const s = sizeRef.current;
+    if (!s) return true;
+    const { gx, gy } = letterLayout(i);
+    const strokes: CarveStroke[] = [];
+    for (let k = 0; k < strokeCount; k++) {
+      const el = elRefs.current.get(`${i}-${k}`);
+      if (el) strokes.push({ el, gx, gy, scale: GLYPH_SCALE, prog: data.progs[k] });
+    }
+    if (!strokes.length) return true;
+    const lp = strokes[0].el.getPointAtLength(0);
+    const startPx = {
+      x: ((gx + lp.x * GLYPH_SCALE) * s) / 100,
+      y: ((gy + lp.y * GLYPH_SCALE) * s) / 100,
+    };
+    const idx = pickSkier(startPx);
+    if (idx < 0) return false; // nobody free: retry shortly
+    lastSkierRef.current = idx;
+    const token = { index: i, cancelled: false };
+    cancelRef.current = token;
+    await skierHandles.current[idx]?.carve(strokes, s, () => token.cancelled);
+    cancelRef.current = null;
+    return true;
+  }
+
+  // strict, one-at-a-time, in typed order: always take the lowest pending letter
+  async function pump() {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    while (true) {
+      const st = carveState.current;
+      const i = st.findIndex((l) => l && l.status === "pending");
+      if (i < 0) break;
+      st[i].status = "carving";
+      bump();
+      const ok = await carveOne(i);
+      const cur = carveState.current[i];
+      if (cur && cur.ch === wordRef.current[i]) {
+        if (ok) cur.status = "done";
+        else cur.status = "pending"; // no skier was free: try again next loop
+        bump();
+      }
+      if (!ok) await sleep(250);
+    }
+    processingRef.current = false;
+  }
+
+  // reconcile carveState to EXACTLY match typedWord (order + chars), every change
+  useEffect(() => {
+    const st = carveState.current;
+    const word = typedWord;
+    for (let i = 0; i < word.length; i++) {
+      if (!st[i] || st[i].ch !== word[i]) {
+        const count = (GLYPHS[word[i]] ?? []).length;
+        st[i] = {
+          ch: word[i],
+          status: reducedMotion ? "done" : "pending",
+          progs: Array.from({ length: count }, () => motionValue(reducedMotion ? 1 : 0)),
+        };
+        for (let k = 0; k < count; k++) elRefs.current.delete(`${i}-${k}`);
+      }
+    }
+    if (st.length > word.length) {
+      // backspace: cancel an in-progress carve of a removed letter, then heal
+      if (cancelRef.current && cancelRef.current.index >= word.length) {
+        cancelRef.current.cancelled = true;
+      }
+      for (let i = word.length; i < st.length; i++) {
+        const removed = st[i];
+        const count = (GLYPHS[removed?.ch ?? ""] ?? []).length;
+        for (let k = 0; k < count; k++) elRefs.current.delete(`${i}-${k}`);
+        // hand the groove to the heal layer so the snow fills back over it
+        if (removed && !reducedMotion) {
+          const { gx, gy } = letterLayout(i);
+          const entry = {
+            id: healId.current++,
+            ch: removed.ch,
+            gx,
+            gy,
+            progs: removed.progs,
+            opacity: motionValue(1),
+          };
+          healingRef.current.push(entry);
+          startHeal(entry);
+        }
+      }
+      st.length = word.length;
+    }
+    bump();
+    if (!reducedMotion) pump();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedWord, reducedMotion]);
+
+  function handleType(e: ChangeEvent<HTMLInputElement>) {
+    setTypedWord(e.target.value.toLowerCase().replace(/[^a-z]/g, "").slice(0, 6));
+  }
 
   useEffect(() => {
     const el = slopeRef.current;
@@ -88,29 +301,98 @@ export default function SkierSlope({ variant = "full" }: SkierSlopeProps) {
   }, []);
 
   return (
-    <section
-      ref={slopeRef}
-      className={`${styles.slope} ${variant === "embed" ? styles.embed : styles.full}`}
-      aria-label="Skier slope"
-    >
-      {/* procedural GLSL snow surface, clipped to the rounded square */}
-      <SnowShader className={styles.snow} />
+    <div className={styles.shell}>
+      <section
+        ref={slopeRef}
+        className={`${styles.slope} ${variant === "embed" ? styles.embed : styles.full}`}
+        aria-label="Skier slope"
+      >
+        {/* procedural GLSL snow surface, clipped to the rounded square */}
+        <SnowShader className={styles.snow} />
 
       {/* shared gradient defs so the figures do not redeclare ids */}
       <SkierDefs />
 
-      {/* every skier slides, reacts, and sprays on its own; wait for the size */}
+      {/* carved letters, revealed by recruited skiers, under the field.
+          glyphs come straight from typedWord so the carve always matches it */}
+      <svg className={styles.letters} viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          {/* roughen + feather so grooves read as scratched-into-snow, not vector */}
+          <filter id="carve-rough" x="-15%" y="-15%" width="130%" height="130%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.11 0.14" numOctaves="2" seed="7" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.5" xChannelSelector="R" yChannelSelector="G" result="disp" />
+            <feGaussianBlur in="disp" stdDeviation="0.16" />
+          </filter>
+        </defs>
+        <g filter="url(#carve-rough)">
+        {typedWord.split("").map((ch, i) => {
+          const data = carveState.current[i];
+          if (!data || data.ch !== ch) return null; // wait until reconciled in sync
+          const { gx, gy } = letterLayout(i);
+          return (
+            <g
+              key={`${i}-${ch}`}
+              // pending letters keep their paths mounted (for sampling) but stay
+              // invisible, so no phantom dot/marker shows before the skier traces
+              style={{ opacity: data.status === "pending" ? 0 : 1 }}
+              transform={`translate(${gx.toFixed(2)} ${gy.toFixed(2)}) scale(${GLYPH_SCALE.toFixed(3)})`}
+            >
+              {(GLYPHS[ch] ?? []).map((d, k) => (
+                <CarvedStroke
+                  key={k}
+                  d={d}
+                  progress={data.progs[k]}
+                  pathRef={(el) => {
+                    elRefs.current.set(`${i}-${k}`, el);
+                  }}
+                />
+              ))}
+            </g>
+          );
+        })}
+        {/* letters healing over after backspace: groove retracts and fades */}
+        {healingRef.current.map((h) => (
+          <motion.g
+            key={`heal-${h.id}`}
+            style={{ opacity: h.opacity }}
+            transform={`translate(${h.gx.toFixed(2)} ${h.gy.toFixed(2)}) scale(${GLYPH_SCALE.toFixed(3)})`}
+          >
+            {(GLYPHS[h.ch] ?? []).map((d, k) => (
+              <CarvedStroke key={k} d={d} progress={h.progs[k]} pathRef={() => {}} />
+            ))}
+          </motion.g>
+        ))}
+        </g>
+      </svg>
+
+      {/* every skier slides, reacts, and sprays on its own; wait for the size.
+          refs let the coordinator recruit one to carve a letter */}
       {size > 0 &&
         RIDERS.map((r, i) => (
           <Skier
             key={i}
+            ref={(h) => {
+              skierHandles.current[i] = h;
+            }}
             rider={r}
             size={size}
             spray
             reducedMotion={reducedMotion}
           />
         ))}
-    </section>
+      </section>
+
+      <input
+        className={styles.glassInput}
+        value={typedWord}
+        onChange={handleType}
+        placeholder="type something"
+        aria-label="Type a word"
+        spellCheck={false}
+        autoComplete="off"
+        maxLength={6}
+      />
+    </div>
   );
 }
 
@@ -238,6 +520,7 @@ const SLIDE_SPEED = 0.11; // slope-heights per second; a calm glide, slow enough
 const DRIFT = -0.14; // leftward drift per unit of descent, following the slope diagonal
 const ENTER = -0.14; // respawn just above the top edge, off-view
 const EXIT = 1.16; // exit just below the bottom edge, off-view
+const TWO_PI = Math.PI * 2;
 
 // ---- Snow spray (chunky flecks kicked off the back of the board) ---------
 // A pooled, transform-only particle trail. Velocities are px/sec, positions px
@@ -261,20 +544,16 @@ const DODGE_BURST: FleckCfg = { vx: 42, vy: -74, spread: 40, up: 34, lifeMin: 0.
  * is per instance, so every skier reacts independently of the others. This is
  * the one component to swap for a Rive-driven version later.
  */
-function Skier({
-  rider,
-  size,
-  spray = false,
-  reducedMotion = false,
-}: {
-  rider: Rider;
-  size: number;
-  spray?: boolean;
-  reducedMotion?: boolean;
-}) {
+const Skier = forwardRef<
+  SkierHandle,
+  { rider: Rider; size: number; spray?: boolean; reducedMotion?: boolean }
+>(function Skier({ rider, size, spray = false, reducedMotion = false }, ref) {
   // outer travel transform, in px, written directly without re-rendering React
   const x = useMotionValue(0);
   const y = useMotionValue(0);
+  // "slide" = ambient descent; "carve" = recruited to trace a letter
+  const mode = useRef<"slide" | "carve">("slide");
+  const reactingRef = useRef(false);
   // start at this rider's phase, then flow down its lane at its own speed. Lanes
   // are parallel and spaced wider than a figure, so even with different speeds
   // the perpendicular gap between any two riders never closes: no collisions.
@@ -284,6 +563,7 @@ function Skier({
 
   const controls = useAnimationControls();
   const figureRef = useRef<HTMLDivElement>(null);
+  const placeRef = useRef<HTMLDivElement>(null); // carve lean is written here per frame
   // the last reaction this skier played, so the next tap never repeats it
   const lastReaction = useRef<ReactionName | null>(null);
   // descent-speed multiplier; only the fall reaction dips it below 1 then recovers
@@ -340,26 +620,61 @@ function Skier({
   useAnimationFrame((_, delta) => {
     const s = sizeRef.current;
     if (!s) return;
-    let fy = travel.current + SLIDE_SPEED * rider.speed * speedFactor.get() * (delta / 1000);
-    if (fy > EXIT) fy = ENTER + (fy - EXIT); // wrap off-screen, carry the remainder
-    travel.current = fy;
-    // left IS the lane intercept; the shared DRIFT keeps every lane parallel,
-    // so spacing the lanes wider than a figure guarantees no two ever touch
-    const fx = rider.left / 100 + DRIFT * fy;
-    x.set(fx * s);
-    y.set(fy * s);
-
-    if (!sprayOn) return;
     const dt = delta / 1000;
-    // gentle steady emission, only while he is actually on the slope
-    if (fy > 0 && fy < 1) {
-      emitAcc.current += STEADY_RATE * dt;
-      while (emitAcc.current >= 1) {
-        spawnFleck(STEADY_CFG);
-        emitAcc.current -= 1;
+
+    // ambient descent only runs when not recruited to carve a letter
+    if (mode.current === "slide") {
+      const fyRate = SLIDE_SPEED * rider.speed * speedFactor.get();
+      let fy = travel.current + fyRate * dt;
+      if (fy > EXIT) fy = ENTER + (fy - EXIT); // wrap off-screen, carry the remainder
+      travel.current = fy;
+
+      // carving lives in the BASE travel layer: a lateral weave added to lane x,
+      // plus a lean written to .place. Reactions (.figure) and spray ride on top.
+      let carve = 0;
+      let latVel = 0;
+      const c = rider.carve;
+      if (c) {
+        const arg = TWO_PI * c.freq * fy + c.phase;
+        carve = c.amp * Math.sin(arg);
+        latVel = c.amp * TWO_PI * c.freq * fyRate * Math.cos(arg); // px/s, sets turn
+        const lean = c.lean * Math.cos(arg); // edge into the turn
+        const place = placeRef.current;
+        if (place) {
+          const ls = rider.flip ? -lean : lean; // keep the lean into the turn when mirrored
+          place.style.transform = `translate(-50%, -50%) rotate(${(rider.rot + ls).toFixed(2)}deg) scaleX(${rider.flip ? -1 : 1})`;
+        }
+      }
+
+      // left IS the lane intercept; the shared DRIFT keeps every lane parallel,
+      // so spacing the lanes wider than a figure guarantees no two ever touch
+      const fx = rider.left / 100 + DRIFT * fy;
+      x.set(fx * s + carve);
+      y.set(fy * s);
+
+      // gentle steady emission, only while he is actually on the slope.
+      // on hard carve turns the spray fans wider and biases toward the turn.
+      if (sprayOn && fy > 0 && fy < 1) {
+        emitAcc.current += STEADY_RATE * dt;
+        const turn = Math.min(1, Math.abs(latVel) / 60);
+        while (emitAcc.current >= 1) {
+          spawnFleck(
+            turn > 0.05
+              ? {
+                  ...STEADY_CFG,
+                  spread: STEADY_CFG.spread + turn * 44,
+                  vx: STEADY_CFG.vx + Math.sign(latVel) * turn * 34,
+                }
+              : STEADY_CFG
+          );
+          emitAcc.current -= 1;
+        }
       }
     }
-    // integrate + render every live fleck (transform/opacity only)
+
+    if (!sprayOn) return;
+    // integrate + render every live fleck (transform/opacity only), always, so
+    // flecks finish their arc even while the skier is carving a letter
     for (let i = 0; i < SPRAY_MAX; i++) {
       const p = particles.current[i];
       if (!p.active) continue;
@@ -386,8 +701,9 @@ function Skier({
     _event: MouseEvent | TouchEvent | PointerEvent,
     info: { point: { x: number; y: number } }
   ) {
-    if (isReacting) return;
+    if (mode.current === "carve" || isReacting) return; // busy carving or reacting
     setIsReacting(true);
+    reactingRef.current = true;
     try {
       // dodge away from the side the tap came from (fall back to a fixed side)
       const rect = figureRef.current?.getBoundingClientRect();
@@ -422,9 +738,70 @@ function Skier({
       // always reset layered transforms; descent (outer x/y) is untouched
       controls.set({ rotate: 0, x: 0, y: 0 });
       speedFactor.set(1);
+      reactingRef.current = false;
       setIsReacting(false);
     }
   }
+
+  // imperative handle: the coordinator recruits this skier to carve a letter
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPos: () => ({ x: x.get(), y: y.get() }),
+      isAvailable: () => mode.current === "slide" && !reactingRef.current,
+      carve: async (
+        strokes: CarveStroke[],
+        csize: number,
+        shouldCancel?: () => boolean
+      ) => {
+        if (!strokes.length) return;
+        mode.current = "carve";
+        const pointPx = (st: CarveStroke, frac: number) => {
+          const len = st.el.getTotalLength();
+          const lp = st.el.getPointAtLength(frac * len);
+          return {
+            x: ((st.gx + lp.x * st.scale) * csize) / 100,
+            y: ((st.gy + lp.y * st.scale) * csize) / 100,
+          };
+        };
+        const glide = (t: { x: number; y: number }) =>
+          Promise.all([
+            animate(x, t.x, { duration: 0.45, ease: "easeInOut" }).finished,
+            animate(y, t.y, { duration: 0.45, ease: "easeInOut" }).finished,
+          ]);
+        try {
+          await glide(pointPx(strokes[0], 0)); // ski over to the letter start
+          for (let k = 0; k < strokes.length; k++) {
+            if (shouldCancel?.()) break;
+            const st = strokes[k];
+            const lenPx = (st.el.getTotalLength() * st.scale * csize) / 100;
+            await animate(0, 1, {
+              duration: Math.max(0.45, lenPx / CARVE_PX_SPEED),
+              ease: "easeInOut",
+              onUpdate: (v) => {
+                const p = pointPx(st, v);
+                x.set(p.x);
+                y.set(p.y);
+                st.prog.set(v); // reveal the groove at the skier
+                if (sprayOn && Math.random() < 0.5) spawnFleck(STEADY_CFG);
+              },
+            }).finished;
+            if (shouldCancel?.()) break;
+            if (k + 1 < strokes.length) await glide(pointPx(strokes[k + 1], 0));
+          }
+        } catch {
+          // letter may have been removed mid-carve; just fall through to resume
+        }
+        // rejoin the lane at the current height and resume sliding
+        const fy = Math.min(0.98, Math.max(0.02, y.get() / csize));
+        const laneX = (rider.left / 100 + DRIFT * fy) * csize;
+        await glide({ x: laneX, y: fy * csize });
+        travel.current = fy;
+        mode.current = "slide";
+      },
+    }),
+    [x, y, rider, sprayOn]
+  );
 
   return (
     <motion.div className={styles.travel} style={{ x, y }}>
@@ -444,6 +821,7 @@ function Skier({
         </div>
       )}
       <div
+        ref={placeRef}
         className={styles.place}
         style={{ transform: `translate(-50%, -50%) rotate(${rider.rot}deg) scaleX(${rider.flip ? -1 : 1})` }}
       >
@@ -461,7 +839,7 @@ function Skier({
       </div>
     </motion.div>
   );
-}
+});
 
 /** Gradient + shading definitions, declared once for the whole slope. */
 function SkierDefs() {

@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@rive-app/react-canvas": "^4.29.1",
     "framer-motion": "^12.40.0",

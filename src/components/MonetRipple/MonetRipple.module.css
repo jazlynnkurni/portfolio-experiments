@@ -1,0 +1,28 @@
+/* Square widget housing a single full-bleed shader plane */
+.frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(45, 47, 52, 0.16);
+  /* fallback dawn tone behind the canvas while it boots */
+  background: linear-gradient(180deg, #c9b6cf 0%, #9aa6b0 55%, #5a6b78 100%);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.full {
+  width: min(480px, 92vw);
+}
+
+.embed {
+  width: min(300px, 80vw);
+}

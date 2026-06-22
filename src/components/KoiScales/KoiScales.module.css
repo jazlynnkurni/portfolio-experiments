@@ -1,0 +1,23 @@
+/* Fixed square widget with rounded corners and a soft grey shadow */
+.frame {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(45, 47, 52, 0.16);
+}
+
+.full {
+  width: min(480px, 92vw);
+}
+
+.embed {
+  width: min(320px, 80vw);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,243 @@
+/* page entrance: a long smooth fade paired with a gentler slide from the top,
+   once on load. Fade runs on its own slower curve so it eases in rather than
+   snapping to full opacity. */
+.enter {
+  animation: fadeIn 1.3s ease-out both, slideIn 0.95s cubic-bezier(0.22, 1, 0.36, 1)
+      both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-44px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* circle gets its own slide from the top, slightly delayed, so it drops in
+   as a distinct layer on top of the group entrance */
+.enterCircle {
+  animation: slideIn 1.05s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(10, 32, 232, 0.16);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-radius: 999px;
+  background-color: #0a20e8;
+  background-image: radial-gradient(
+    circle at 50% 50%,
+    #f9e79f 0 1.6px,
+    transparent 2.2px
+  );
+  background-size: 14px 100%;
+  background-repeat: repeat-x;
+  background-position: 0 0;
+  animation: fill 4.8s cubic-bezier(0.45, 0, 0.15, 1) infinite,
+    barflow 1.2s linear infinite;
+}
+
+@keyframes fill {
+  0% {
+    width: 0;
+  }
+  80% {
+    width: 100%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* pastel-yellow dots flowing right across the blue fill */
+@keyframes barflow {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 14px 0;
+  }
+}
+
+.dots::after {
+  content: "";
+  animation: dots 1.6s steps(1, end) infinite;
+}
+
+@keyframes dots {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75%,
+  100% {
+    content: "...";
+  }
+}
+
+/* the highlighted word ("Friday") in loading-bar blue */
+.friday {
+  color: #0a20e8;
+  display: inline-block;
+  transform-origin: 50% 80%;
+  will-change: transform;
+}
+
+/* per-letter wrapper for stagger-based variants */
+.friday span {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* 1. sway — leans side to side like swaying to music */
+.sway {
+  animation: sway 1.25s ease-in-out infinite;
+}
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+/* 2. bounce — bops to a beat */
+.bounce {
+  animation: bounce 0.62s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+/* 3. beat — pulses on the downbeat */
+.beat {
+  transform-origin: 50% 65%;
+  animation: beat 0.5s ease-in-out infinite;
+}
+@keyframes beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+/* 4. wiggle — quick playful shimmy */
+.wiggle {
+  animation: wiggle 0.3s ease-in-out infinite;
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3.5deg) translateX(-1px);
+  }
+  50% {
+    transform: rotate(3.5deg) translateX(1px);
+  }
+}
+
+/* 5. shimmer — disco blue sweeping across the word */
+.shimmer {
+  background-image: linear-gradient(
+    100deg,
+    #0a20e8 42%,
+    #9fb0ff 50%,
+    #0a20e8 58%
+  );
+  background-size: 260% 100%;
+  background-repeat: repeat-x;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 260% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* 6. wave — a per-letter Mexican wave down the word */
+.wave span {
+  animation: waveL 1s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.075s);
+}
+@keyframes waveL {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-7px);
+  }
+}
+
+/* 7. lift — INTERACTIVE: letters jump up in sequence on hover */
+.lift span {
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: calc(var(--i) * 0.03s);
+}
+.lift:hover span {
+  transform: translateY(-8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    animation: none;
+    width: 60%;
+  }
+  .dots::after,
+  .sway,
+  .bounce,
+  .beat,
+  .wiggle,
+  .shimmer,
+  .wave span {
+    animation: none;
+  }
+  .enter,
+  .enterCircle {
+    animation: none;
+  }
+}

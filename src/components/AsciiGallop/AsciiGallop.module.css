@@ -1,0 +1,99 @@
+/* An outer white card with a hairline border, the plate inset inside it, and
+   a caption row underneath: title on the left, date on the right. */
+.root {
+  /* the paper the plate is printed on, repainted every frame by the cycle */
+  --plate: #ffffff;
+  --focus: #9a4c19;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 18px;
+  background: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--plate);
+  cursor: crosshair;
+  /* the scrub gesture is horizontal, so vertical page scroll stays with the page */
+  touch-action: pan-y;
+  outline: none;
+}
+
+.stage:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.root[data-variant="embed"] {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.root[data-variant="embed"] .stage {
+  aspect-ratio: 4 / 3;
+  border-radius: 7px;
+}
+
+/* The renderer measures its cell width from whatever font actually applies to
+   this element, and pads every run with spaces. That only lines up in a
+   monospace face, so the canvas must never inherit the card's caption font. */
+.ascii,
+.gl {
+  font-family: var(--font-ibm-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* when the print shader is on, the 2d plate is only a texture source */
+.ascii[data-under="true"] {
+  visibility: hidden;
+}
+
+.gl {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gl[data-on="true"] {
+  opacity: 1;
+}
+
+.caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 6px 4px;
+}
+
+.title {
+  font-size: 15px;
+  line-height: 1.2;
+  color: #1f2937;
+}
+
+.date {
+  font-size: 15px;
+  line-height: 1.2;
+  color: #b0b4bb;
+  white-space: nowrap;
+}
+
+.root[data-variant="embed"] .caption {
+  padding: 12px 4px 2px;
+}
+
+.root[data-variant="embed"] .title,
+.root[data-variant="embed"] .date {
+  font-size: 13px;
+}

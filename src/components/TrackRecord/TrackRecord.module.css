@@ -1,0 +1,147 @@
+/* White card, hairline border, the plate inset inside it, a mono control row
+   and a caption underneath. Same chrome as the other print plates so the
+   sandbox reads as one series. */
+.root {
+  --paper: #fdfcfa;
+  --ink: #1c1a17;
+  --focus: #9a4c19;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 18px;
+  background: #ffffff;
+  font-family: var(--font-sans);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--paper);
+  cursor: crosshair;
+  touch-action: pan-y;
+  outline: none;
+}
+
+.stage:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus);
+}
+
+/* the plate reads its own computed family to set ctx.font, so the face has to
+   live here rather than in the canvas code */
+.plate,
+.gl {
+  font-family: var(--font-sans);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* once the print layer is up, the 2d plate is only a texture source */
+.plate[data-under="true"] {
+  visibility: hidden;
+}
+
+.gl {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gl[data-on="true"] {
+  opacity: 1;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding: 18px 2px 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a4c19;
+}
+
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.readout b {
+  font-weight: 700;
+  color: #1c1a17;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: #9a4c19;
+  background: transparent;
+  border: 1px solid rgba(154, 76, 25, 0.32);
+  border-radius: 999px;
+  padding: 6px 13px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.btn:hover {
+  background: rgba(201, 120, 54, 0.12);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 2px 2px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.2;
+  color: #1f2937;
+}
+
+.root[data-variant="embed"] {
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.root[data-variant="embed"] .stage {
+  border-radius: 7px;
+}
+
+.root[data-variant="embed"] .hud {
+  font-size: 10px;
+  padding-top: 10px;
+}
+
+.root[data-variant="embed"] .title {
+  font-size: 14px;
+}

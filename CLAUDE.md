@@ -19,7 +19,8 @@ hardcoded domains.
 
 ## Design tokens
 - cream #FFF5EF, burnt orange #C97836, orange-dark #9A4C19
-- Source Serif Pro (headlines), Helvetica Neue (body), IBM Plex Mono (labels)
+- Plus Jakarta Sans everywhere: headlines, body, labels, canvas plates.
+  One face, no mixing. Comes from --font-sans in globals.css.
 
 ## Component pattern
 - Each experiment is a self-contained component taking props, on its own route

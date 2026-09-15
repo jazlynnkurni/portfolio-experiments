@@ -20,6 +20,7 @@ const CONTROLS: Control[] = [
   { key: "shadow", label: "shadow", min: 0, max: 1.4, step: 0.02 },
   { key: "glass", label: "glass", min: 0, max: 1.4, step: 0.02 },
   { key: "dome", label: "dome", min: 0.1, max: 1.1, step: 0.02 },
+  { key: "thumbMetal", label: "thumb metal", min: 0, max: 1, step: 0.02 },
   { key: "stiffness", label: "spring", min: 40, max: 400, step: 5 },
   { key: "exposure", label: "exposure", min: 0.3, max: 1.8, step: 0.02 },
 ];

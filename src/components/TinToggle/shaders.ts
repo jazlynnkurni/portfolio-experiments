@@ -43,6 +43,7 @@ uniform float uShadow;
 uniform vec3  uPage;      // the colour behind the control
 uniform float uDebug;
 uniform float uDome;
+uniform float uThumbMetal;
 
 out vec4 fragColor;
 
@@ -157,6 +158,46 @@ float coinHeight(vec2 v, float R){
   return h;
 }
 
+// The die for the channel. Ornament laid along the length rather than round a
+// centre, since a capsule is a run of moulding, not a coin: a beaded course
+// following the outline, a rule inside it, and a repeating scroll and leaf.
+float trackHeight(vec2 p, float halfLen, float R, float d){
+  float h = 0.0;
+  h += (fbm(p * 7.0) - 0.5) * 0.16 * uHammer;
+  h += (fbm(p * 19.0) - 0.5) * 0.05 * uHammer;
+
+  // a raised bead following the outline, and a fine rule inside it
+  h = max(h, ridge(abs(d + 0.055 * R) , 0.045) * 0.90);
+  h = max(h, ridge(abs(d + 0.155 * R), 0.018) * 0.55);
+
+  // bead course along the inner rule
+  float along = p.x;
+  float period = 0.088;
+  float cell = along - period * floor(along / period + 0.5);
+  float band = abs(abs(p.y) - R * 0.60);
+  float beads = length(vec2(cell, band)) - 0.019;
+  float inside = smoothstep(0.02, 0.10, -d);
+  h = max(h, ridge(beads, 0.019) * 0.82 * inside);
+
+  // A running vine down the middle, which is what moulding actually carries:
+  // a continuous wave with leaves alternating off it, rather than a stamp
+  // repeated. A closed motif tiled along a run reads as a row of letters.
+  float wave = sin(along * 21.0) * R * 0.22;
+  float vine = abs(p.y - wave) - 0.016;
+  h = max(h, ridge(vine, 0.030) * 0.88 * inside);
+
+  // leaves, alternating above and below the vine at each half period
+  float leafCell = along - 0.150 * floor(along / 0.150 + 0.5);
+  float side = mod(floor(along / 0.150), 2.0) * 2.0 - 1.0;
+  vec2 lq = vec2(leafCell, p.y - wave);
+  vec2 tip = vec2(0.055, side * R * 0.30);
+  float leaf = sdSeg(lq, vec2(0.0), tip) - 0.013;
+  float curl = sdSeg(lq, tip, tip + vec2(-0.045, side * 0.035)) - 0.010;
+  h = max(h, ridge(min(leaf, curl), 0.026) * 0.80 * inside);
+
+  return h;
+}
+
 // The room. Contrasty by design: metal has no colour of its own, it shows you
 // the room, and an evenly lit one comes back as flat pale nothing.
 vec3 env(vec3 d, vec3 sun){
@@ -192,22 +233,53 @@ void main(){
   float inTrack = smoothstep(0.006, -0.006, dTrack);
 
   if (inTrack > 0.0){
-    // A thick lens: the surface rolls over toward the rim, so the page behind
-    // is pulled inward and the edge picks up a bright ring.
+    float metal = smoothstep(0.12, 0.88, uT);
+
+    // the channel's own surface: a shallow trough, plus whatever the die put
+    // into it
     float k = clamp(-dTrack / trackR, 0.0, 1.0);
     float bulge = sqrt(max(1.0 - (1.0 - k) * (1.0 - k), 0.0));
     vec2 gdir = normalize(vec2(p.x - clamp(p.x, -trackHalf, trackHalf), p.y) + 1e-5);
-    vec2 refr = gdir * (1.0 - bulge) * uGlass;
-    vec3 behind = page * (1.0 - 0.10 * length(refr) * 8.0);
-    // a cool tint and a lift, the way a piece of glass sits over paper
-    vec3 glass = behind * vec3(0.975, 0.985, 1.005) + vec3(0.035, 0.040, 0.050) * bulge;
-    // the bright lip where the surface turns away
+
+    float e = 2.0 / min(uRes.x, uRes.y) * 1.75;
+    float th0 = trackHeight(p, trackHalf, trackR, dTrack);
+    float thx = trackHeight(p + vec2(e, 0.0), trackHalf, trackR, sdCapsule(p + vec2(e, 0.0), trackHalf, trackR))
+              - trackHeight(p - vec2(e, 0.0), trackHalf, trackR, sdCapsule(p - vec2(e, 0.0), trackHalf, trackR));
+    float thy = trackHeight(p + vec2(0.0, e), trackHalf, trackR, sdCapsule(p + vec2(0.0, e), trackHalf, trackR))
+              - trackHeight(p - vec2(0.0, e), trackHalf, trackR, sdCapsule(p - vec2(0.0, e), trackHalf, trackR));
+    vec2 tslope = vec2(thx, thy) / (2.0 * e) * uPress * trackR * 0.55;
+    vec3 Nt = normalize(vec3(-tslope - gdir * (1.0 - bulge) * 0.35, 1.0));
+
+    // off: a plain glass trough, the page coming through
+    vec3 glass = page * vec3(0.975, 0.985, 1.005) + vec3(0.035, 0.040, 0.050) * bulge;
     float lip = smoothstep(0.16, 0.0, abs(dTrack)) * (1.0 - bulge);
     glass += vec3(0.30, 0.33, 0.38) * lip * 0.85;
-    // the channel darkens on the side away from the sun
-    float wall = dot(normalize(vec2(p.x - clamp(p.x, -trackHalf, trackHalf), p.y) + 1e-5), normalize(sun.xy));
+    float wall = dot(gdir, normalize(sun.xy));
     glass *= 1.0 + wall * (1.0 - bulge) * 0.35;
-    col = mix(col, glass, inTrack);
+
+    // on: the trough is struck tin, and the ornament in it lights up
+    vec3 Vt = vec3(0.0, 0.0, 1.0);
+    vec3 Rt = reflect(-Vt, Nt);
+    float ndvT = max(dot(Nt, Vt), 1e-4);
+    vec3 F0 = vec3(0.80, 0.825, 0.865);
+    vec3 Ft = F0 + (1.0 - F0) * pow(1.0 - ndvT, 5.0);
+    vec3 specT = vec3(0.0);
+    for (int i = 0; i < 6; i++){
+      float fi = float(i);
+      float a = fi * 2.399963;
+      specT += env(normalize(Rt + vec3(cos(a), sin(a), 0.0) * sqrt(fi / 6.0) * uRough * 1.4), sun);
+    }
+    specT /= 6.0;
+    vec3 Ht = normalize(sun + Vt);
+    float a2t = max(uRough, 0.05); a2t *= a2t;
+    float ndhT = max(dot(Nt, Ht), 0.0);
+    float ddT = a2t / (PI * pow(ndhT * ndhT * (a2t - 1.0) + 1.0, 2.0) + 1e-7);
+    vec3 directT = vec3(2.4, 2.38, 2.34) * ddT * max(dot(Nt, sun), 0.0) / (4.0 * ndvT + 1e-4);
+    float occT = mix(0.50, 1.0, smoothstep(0.0, 0.70, th0));
+    vec3 tinTrack = (specT * occT + directT) * Ft * 1.18;
+    tinTrack *= mix(1.0 - uTarnish, 1.0, smoothstep(0.0, 0.5, th0));
+
+    col = mix(col, mix(glass, tinTrack, metal), inTrack);
     alpha = max(alpha, inTrack);
   }
 
@@ -234,8 +306,6 @@ void main(){
 
   if (inKnob > 0.0){
     vec2 v = p - vec2(knobX, 0.0);
-    float metal = smoothstep(0.12, 0.88, uT);
-
     float rr = clamp(length(v) / knobR, 0.0, 1.0);
     float domeZ = sqrt(max(1.0 - rr * rr * uDome, 0.0));
     vec3 N = normalize(vec3(v / knobR * uDome, domeZ));
@@ -289,7 +359,7 @@ void main(){
     bead += vec3(1.7) * pow(max(dot(N, normalize(sun + V)), 0.0), 70.0) * 0.55;
     bead *= 1.0 + dot(normalize(v + 1e-6), normalize(sun.xy)) * rr * 0.14;
 
-    vec3 knob = mix(bead, tin, metal);
+    vec3 knob = mix(bead, tin, uThumbMetal);
 
     float rimLit = dot(normalize(v + 1e-6), normalize(sun.xy));
     float rimBand = smoothstep(0.0, -0.05, dKnob) * smoothstep(-0.10, -0.02, dKnob);

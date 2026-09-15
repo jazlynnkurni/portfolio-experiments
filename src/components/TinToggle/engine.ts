@@ -11,6 +11,7 @@ export type ToggleParams = {
   stiffness: number;
   glass: number;
   dome: number;
+  thumbMetal: number;
 };
 
 export const DEFAULT_PARAMS: ToggleParams = {
@@ -24,6 +25,7 @@ export const DEFAULT_PARAMS: ToggleParams = {
   stiffness: 150,
   glass: 0.55,
   dome: 0.62,
+  thumbMetal: 0.0,
 };
 
 export type ToggleHandle = {
@@ -179,6 +181,7 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     gl.uniform1f(u("uGlass"), P.glass);
     gl.uniform3f(u("uPage"), 0.898, 0.898, 0.898);
     gl.uniform1f(u("uDome"), P.dome);
+    gl.uniform1f(u("uThumbMetal"), P.thumbMetal);
     gl.uniform1f(u("uPress"), P.press);
     gl.uniform1f(u("uHammer"), P.hammer);
     gl.uniform1f(u("uRough"), P.rough);

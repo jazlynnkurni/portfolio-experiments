@@ -430,7 +430,9 @@ export function startBubbles(cvs: HTMLCanvasElement, opts: Options = {}): Bubble
         b.y += b.vy * dt * par;
 
         b.wPhase += dt * (2.4 + 46 / b.r);
-        const amp = 0.010 + 0.020 * Math.min(1, Math.hypot(b.vx, b.vy) / 120);
+        // Surface tension wins by a mile at this size, so a bubble is very nearly
+        // a sphere. Only a whisper of wobble, or it reads as an egg.
+        const amp = 0.0035 + 0.0065 * Math.min(1, Math.hypot(b.vx, b.vy) / 120);
         b.w1 = amp * Math.sin(b.wPhase);
         b.w2 = amp * 0.6 * Math.sin(b.wPhase * 1.63 + 1.1);
 

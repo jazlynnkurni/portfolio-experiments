@@ -438,7 +438,11 @@ export function startBubbles(cvs: HTMLCanvasElement, opts: Options = {}): Bubble
         b.y += b.vy * dt * par;
 
         b.wPhase += dt * (2.4 + 46 / b.r);
-        const amp = 0.010 + 0.020 * Math.min(1, Math.hypot(b.vx, b.vy) / 120);
+        // A bubble this size is held to a sphere by surface tension far harder
+        // than anything here perturbs it. The two modes below beat against each
+        // other, so even a couple of percent each reads as a lobed outline.
+        // Keep it near zero at rest and let it breathe only when shoved.
+        const amp = 0.0012 + 0.0045 * Math.min(1, Math.hypot(b.vx, b.vy) / 120);
         b.w1 = amp * Math.sin(b.wPhase);
         b.w2 = amp * 0.6 * Math.sin(b.wPhase * 1.63 + 1.1);
 

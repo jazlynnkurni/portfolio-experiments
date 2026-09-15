@@ -9,6 +9,7 @@ export type ToggleParams = {
   sunHeight: number;
   shadow: number;
   stiffness: number;
+  glass: number;
 };
 
 export const DEFAULT_PARAMS: ToggleParams = {
@@ -20,6 +21,7 @@ export const DEFAULT_PARAMS: ToggleParams = {
   sunHeight: 0.62,
   shadow: 0.85,
   stiffness: 150,
+  glass: 0.55,
 };
 
 export type ToggleHandle = {
@@ -32,11 +34,13 @@ type Options = {
   params?: ToggleParams;
   onChange?: (on: boolean) => void;
   onError?: (message: string) => void;
+  onStats?: (line: string) => void;
 };
 
 export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleHandle {
   const onChange = opts.onChange ?? (() => {});
   const onError = opts.onError ?? (() => {});
+  const onStats = opts.onStats ?? (() => {});
   const P: ToggleParams = opts.params ?? { ...DEFAULT_PARAMS };
 
   const ctx = cvs.getContext("webgl2", { antialias: false, alpha: true, premultipliedAlpha: false });
@@ -82,7 +86,9 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
   // detented switch does.
   // ?on=1 starts it thrown, which is the only way to capture the far state
   // in a screenshot.
-  let on = typeof location !== "undefined" && new URLSearchParams(location.search).get("on") === "1";
+  const qs = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
+  const debug = Number(qs.get("debug") ?? 0) || 0;
+  let on = qs.get("on") === "1";
   let pos = on ? 1 : 0;      // 0 left, 1 right
   let vel = 0;
 
@@ -92,10 +98,36 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     onChange(on);
   };
 
+  let dragging = false;
+  let dragged = false;
+  let downX = 0;
+
   const onDown = (e: PointerEvent) => {
-    const r = cvs.getBoundingClientRect();
-    flip(e.clientX - r.left > r.width * 0.5 ? true : false);
+    dragging = true;
+    dragged = false;
+    downX = e.clientX;
     cvs.setPointerCapture(e.pointerId);
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (!dragging) return;
+    const r = cvs.getBoundingClientRect();
+    const dx = e.clientX - downX;
+    if (Math.abs(dx) > r.width * 0.04) dragged = true;
+    if (dragged) {
+      // follow the finger while it is down
+      const t = (e.clientX - r.left) / Math.max(1, r.width);
+      pos = Math.max(0, Math.min(1, (t - 0.5) * 2.4 + 0.5));
+      flip(pos > 0.5);
+    }
+  };
+
+  const onUp = (e: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    // a press with no travel is a flip, which is what a switch is for
+    if (!dragged) flip(!on);
+    try { cvs.releasePointerCapture(e.pointerId); } catch { /* already gone */ }
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(!on); }
@@ -103,11 +135,16 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     if (e.key === "ArrowRight") flip(true);
   };
   cvs.addEventListener("pointerdown", onDown);
+  cvs.addEventListener("pointermove", onMove);
+  cvs.addEventListener("pointerup", onUp);
+  cvs.addEventListener("pointercancel", onUp);
   cvs.addEventListener("keydown", onKey);
   cvs.tabIndex = 0;
   cvs.style.cursor = "pointer";
 
   let raf = 0, stopped = false, last = performance.now(), t = 0;
+  let reported = false;
+  let flow = 0;
 
   function frame(now: number) {
     if (stopped) return;
@@ -117,9 +154,15 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     t += dt;
 
     const target = on ? 1 : 0;
-    const k = P.stiffness, c = 2 * Math.sqrt(k) * 0.72;
-    vel += ((target - pos) * k - vel * c) * dt;
-    pos += vel * dt;
+    if (!dragging) {
+      const k = P.stiffness, c = 2 * Math.sqrt(k) * 0.72;
+      vel += ((target - pos) * k - vel * c) * dt;
+      pos += vel * dt;
+    } else {
+      vel = 0;
+    }
+    // how hard it is flowing, from how fast it is actually moving
+    flow += (Math.min(1, Math.abs(vel) * 0.32) - flow) * Math.min(1, dt * 9);
 
     resize();
     gl.clearColor(0, 0, 0, 0);
@@ -130,6 +173,9 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     gl.bindVertexArray(vao);
     gl.uniform2f(u("uRes"), W, H);
     gl.uniform1f(u("uT"), Math.max(-0.08, Math.min(1.08, pos)));
+    gl.uniform1f(u("uFlow"), flow);
+    gl.uniform1f(u("uGlass"), P.glass);
+    gl.uniform3f(u("uPage"), 0.898, 0.898, 0.898);
     gl.uniform1f(u("uPress"), P.press);
     gl.uniform1f(u("uHammer"), P.hammer);
     gl.uniform1f(u("uRough"), P.rough);
@@ -138,7 +184,23 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     gl.uniform1f(u("uSunHeight"), P.sunHeight);
     gl.uniform1f(u("uShadow"), P.shadow);
     gl.uniform1f(u("uTime"), t);
+    gl.uniform1f(u("uDebug"), debug);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // One report on the first frame: size, pixel ratio and any GL complaint.
+    // A canvas that is one pixel tall, or a context that has quietly errored,
+    // both look exactly like "nothing rendered" from the outside.
+    if (!reported) {
+      reported = true;
+      const err = gl.getError();
+      const line =
+        "buffer " + W + "x" + H +
+        "  css " + cvs.clientWidth + "x" + cvs.clientHeight +
+        "  dpr " + (window.devicePixelRatio || 1) +
+        "  glError 0x" + err.toString(16);
+      onStats(line);
+      if (W < 8 || H < 8 || err !== 0) onError(line);
+    }
 
     raf = requestAnimationFrame(frame);
   }
@@ -157,6 +219,9 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
       window.removeEventListener("resize", resize);
       ro?.disconnect();
       cvs.removeEventListener("pointerdown", onDown);
+      cvs.removeEventListener("pointermove", onMove);
+      cvs.removeEventListener("pointerup", onUp);
+      cvs.removeEventListener("pointercancel", onUp);
       cvs.removeEventListener("keydown", onKey);
     },
   };

@@ -422,8 +422,16 @@ export function startBubbles(cvs: HTMLCanvasElement, opts: Options = {}): Bubble
         b.vx += (wx * (0.7 + b.r * 0.006) - b.vx) * Math.min(1, dt * 1.1);
         b.vy += wy * dt * 1.4;
 
-        // The cursor moves no air. A bubble only answers a tap, so hovering over
-        // one to look closely never shoves it out of the way.
+        // the pointer drags air with it, so they scatter out of its way
+        const dx = b.x - pointer.x, dy = b.y - pointer.y;
+        const d2 = dx * dx + dy * dy;
+        const reach = 190 + b.r;
+        if (d2 < reach * reach && pointer.x > -500){
+          const d = Math.sqrt(d2) + 1e-3;
+          const f = (1 - d / reach) * (1 - d / reach);
+          b.vx += (dx / d * 60 + pvx * 0.22) * f * dt * 6;
+          b.vy += (dy / d * 60 + pvy * 0.22) * f * dt * 6;
+        }
 
         const par = 1.18 - b.depth * 0.5;
         b.x += b.vx * dt * par;

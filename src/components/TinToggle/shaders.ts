@@ -246,7 +246,7 @@ void main(){
     float hy = coinHeight(v + vec2(0.0, e), knobR) - coinHeight(v - vec2(0.0, e), knobR);
     // press depth as a fraction of the coin's width, so the slope lands in the
     // same units as the surface it belongs to
-    vec2 slope = vec2(hx, hy) / (2.0 * e) * uPress * knobR * metal;
+    vec2 slope = vec2(hx, hy) / (2.0 * e) * uPress * knobR;
     N = normalize(vec3(N.xy - slope, N.z));
 
     vec3 V = vec3(0.0, 0.0, 1.0);
@@ -270,17 +270,24 @@ void main(){
     float dd = a2 / (PI * pow(ndh * ndh * (a2 - 1.0) + 1.0, 2.0) + 1e-7);
     vec3 direct = vec3(2.4, 2.38, 2.34) * dd * max(dot(N, sun), 0.0) / (4.0 * ndv + 1e-4);
 
-    float occ = mix(0.48, 1.0, smoothstep(0.0, 0.70, h * metal));
+    float occ = mix(0.48, 1.0, smoothstep(0.0, 0.70, h));
     vec3 tin = (spec * occ + direct) * F * 1.22;
-    tin *= mix(1.0 - uTarnish, 1.0, smoothstep(0.0, 0.5, h * metal));
+    tin *= mix(1.0 - uTarnish, 1.0, smoothstep(0.0, 0.5, h));
 
     // Off, it is a bead of glass: it passes the page through, brightens where
     // the surface turns away, and carries one clean highlight.
+    // Glass, read off the same engraved normal: the page comes through, bent
+    // by every shoulder, so the ornament is still legible as relief even with
+    // no metal in it. Its hollows shade, its crowns catch a rim.
     float fres = pow(1.0 - ndv, 4.0);
-    vec3 bead = page * (1.0 - 0.18 * rr * rr) * vec3(0.99, 0.995, 1.01);
-    bead += vec3(0.30, 0.33, 0.39) * fres * 1.1;
-    bead += vec3(1.5) * pow(max(dot(N, normalize(sun + V)), 0.0), 90.0) * 0.5;
-    bead *= 1.0 + dot(normalize(v + 1e-6), normalize(sun.xy)) * rr * 0.12;
+    vec2 bend = N.xy * 0.22;
+    vec3 bead = page * (1.0 - 0.10 * dot(bend, bend) * 40.0);
+    bead *= 1.0 - 0.16 * rr * rr;
+    bead = mix(bead, bead * vec3(0.985, 0.995, 1.015), 0.8);
+    bead *= mix(0.72, 1.06, smoothstep(0.0, 0.62, h));      // the stamping, in shade
+    bead += vec3(0.32, 0.35, 0.42) * fres * 1.15;
+    bead += vec3(1.7) * pow(max(dot(N, normalize(sun + V)), 0.0), 70.0) * 0.55;
+    bead *= 1.0 + dot(normalize(v + 1e-6), normalize(sun.xy)) * rr * 0.14;
 
     vec3 knob = mix(bead, tin, metal);
 

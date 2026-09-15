@@ -42,6 +42,7 @@ uniform float uSunHeight;
 uniform float uShadow;
 uniform vec3  uPage;      // the colour behind the control
 uniform float uDebug;
+uniform float uDome;
 
 out vec4 fragColor;
 
@@ -174,7 +175,7 @@ vec3 env(vec3 d, vec3 sun){
 
 void main(){
   vec2 px = (vUv * uRes - uRes * 0.5) / min(uRes.x, uRes.y);
-  vec2 p = px * 2.4;
+  vec2 p = px * 1.75;
 
   float trackHalf = 0.44;
   float trackR = 0.40;
@@ -233,17 +234,19 @@ void main(){
 
   if (inKnob > 0.0){
     vec2 v = p - vec2(knobX, 0.0);
-    float rr = clamp(length(v) / knobR, 0.0, 1.0);
-    float domeZ = sqrt(max(1.0 - rr * rr * 0.5, 0.0));
-    vec3 N = normalize(vec3(v / knobR * 0.5, domeZ));
+    float metal = smoothstep(0.12, 0.88, uT);
 
-    float e = 2.0 / min(uRes.x, uRes.y) * 2.4;
+    float rr = clamp(length(v) / knobR, 0.0, 1.0);
+    float domeZ = sqrt(max(1.0 - rr * rr * uDome, 0.0));
+    vec3 N = normalize(vec3(v / knobR * uDome, domeZ));
+
+    float e = 2.0 / min(uRes.x, uRes.y) * 1.75;
     float h = coinHeight(v, knobR);
     float hx = coinHeight(v + vec2(e, 0.0), knobR) - coinHeight(v - vec2(e, 0.0), knobR);
     float hy = coinHeight(v + vec2(0.0, e), knobR) - coinHeight(v - vec2(0.0, e), knobR);
     // press depth as a fraction of the coin's width, so the slope lands in the
     // same units as the surface it belongs to
-    vec2 slope = vec2(hx, hy) / (2.0 * e) * uPress * knobR;
+    vec2 slope = vec2(hx, hy) / (2.0 * e) * uPress * knobR * metal;
     N = normalize(vec3(N.xy - slope, N.z));
 
     vec3 V = vec3(0.0, 0.0, 1.0);
@@ -267,9 +270,19 @@ void main(){
     float dd = a2 / (PI * pow(ndh * ndh * (a2 - 1.0) + 1.0, 2.0) + 1e-7);
     vec3 direct = vec3(2.4, 2.38, 2.34) * dd * max(dot(N, sun), 0.0) / (4.0 * ndv + 1e-4);
 
-    float occ = mix(0.58, 1.0, smoothstep(0.0, 0.70, h));
-    vec3 knob = (spec * occ + direct) * F * 1.22;
-    knob *= mix(1.0 - uTarnish, 1.0, smoothstep(0.0, 0.5, h));
+    float occ = mix(0.48, 1.0, smoothstep(0.0, 0.70, h * metal));
+    vec3 tin = (spec * occ + direct) * F * 1.22;
+    tin *= mix(1.0 - uTarnish, 1.0, smoothstep(0.0, 0.5, h * metal));
+
+    // Off, it is a bead of glass: it passes the page through, brightens where
+    // the surface turns away, and carries one clean highlight.
+    float fres = pow(1.0 - ndv, 4.0);
+    vec3 bead = page * (1.0 - 0.18 * rr * rr) * vec3(0.99, 0.995, 1.01);
+    bead += vec3(0.30, 0.33, 0.39) * fres * 1.1;
+    bead += vec3(1.5) * pow(max(dot(N, normalize(sun + V)), 0.0), 90.0) * 0.5;
+    bead *= 1.0 + dot(normalize(v + 1e-6), normalize(sun.xy)) * rr * 0.12;
+
+    vec3 knob = mix(bead, tin, metal);
 
     float rimLit = dot(normalize(v + 1e-6), normalize(sun.xy));
     float rimBand = smoothstep(0.0, -0.05, dKnob) * smoothstep(-0.10, -0.02, dKnob);

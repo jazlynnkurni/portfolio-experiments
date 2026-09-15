@@ -10,18 +10,20 @@ export type ToggleParams = {
   shadow: number;
   stiffness: number;
   glass: number;
+  dome: number;
 };
 
 export const DEFAULT_PARAMS: ToggleParams = {
-  press: 0.55,
+  press: 0.85,
   hammer: 0.7,
-  rough: 0.24,
+  rough: 0.20,
   tarnish: 0.20,
   exposure: 0.92,
   sunHeight: 0.62,
-  shadow: 0.85,
+  shadow: 1.15,
   stiffness: 150,
   glass: 0.55,
+  dome: 0.62,
 };
 
 export type ToggleHandle = {
@@ -176,6 +178,7 @@ export function startToggle(cvs: HTMLCanvasElement, opts: Options = {}): ToggleH
     gl.uniform1f(u("uFlow"), flow);
     gl.uniform1f(u("uGlass"), P.glass);
     gl.uniform3f(u("uPage"), 0.898, 0.898, 0.898);
+    gl.uniform1f(u("uDome"), P.dome);
     gl.uniform1f(u("uPress"), P.press);
     gl.uniform1f(u("uHammer"), P.hammer);
     gl.uniform1f(u("uRough"), P.rough);

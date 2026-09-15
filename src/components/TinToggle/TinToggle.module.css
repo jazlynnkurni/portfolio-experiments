@@ -2,8 +2,8 @@
 
 .stage {
   position: relative;
-  width: min(calc(100vw - 48px), 420px);
-  aspect-ratio: 2.35;
+  width: min(calc(100vw - 40px), 620px);
+  aspect-ratio: 2.1;
 }
 
 .embed .stage { width: 100%; }

@@ -223,7 +223,7 @@ void main(){
   float knobR = 0.335;
   float knobX = mix(-trackHalf, trackHalf, uT);
 
-  vec3 sun = normalize(vec3(mix(-0.72, 0.72, uT), uSunHeight, 0.45));
+  vec3 sun = normalize(vec3(-0.46, uSunHeight, 0.52));
   vec3 page = uPage;
   vec3 col = page;
   float alpha = 0.0;
@@ -291,12 +291,7 @@ void main(){
   alpha = max(alpha, shade * 0.6);
 
   // ---------------------------------------------------------------- thumb
-  // While it travels it stays fused to where it set off from, so it stretches
-  // and snaps back rather than sliding.
-  float trailX = mix(knobX, mix(-trackHalf, trackHalf, 1.0 - uT), clamp(uFlow, 0.0, 1.0) * 0.30);
-  float dA = length(p - vec2(knobX, 0.0)) - knobR;
-  float dB = length(p - vec2(trailX, 0.0)) - knobR * (0.72 - 0.25 * clamp(uFlow, 0.0, 1.0));
-  float dKnob = smin(dA, dB, 0.26 * clamp(uFlow, 0.0, 1.0) + 0.02);
+  float dKnob = length(p - vec2(knobX, 0.0)) - knobR;
   float inKnob = smoothstep(0.006, -0.006, dKnob);
 
   if (uDebug > 1.5 && uDebug < 2.5){

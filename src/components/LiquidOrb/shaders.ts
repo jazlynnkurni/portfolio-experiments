@@ -91,6 +91,9 @@ void main(){
   float alpha = 0.0;
 
   float r = length(p) / uRadius;
+  // taken outside the branch, where the derivative is defined
+  float aa = fwidth(r) * 1.5;
+
   if (r <= 1.0){
     // Straight down the axis, so the silhouette is a true circle and the
     // foreshortening is the honest cosine one.
@@ -123,6 +126,10 @@ void main(){
     // back shows through, and because we see it from behind it arrives mirrored
     // and hugging the silhouette. That crowded rim is most of the character.
     vec2 duv = vec2(0.0015 + 0.03 * grazing * grazing, 0.0);
+    // the surface runs away from us at the limb, so ask for a coarser level
+    // there instead of letting the hardware guess from derivatives it does not
+    // have
+    float lod = log2(1.0 + grazing * grazing * 26.0);
 
     float inkF = 0.0;
     float inkB = 0.0;
@@ -130,13 +137,13 @@ void main(){
       float t = float(i) / 2.0;
       float uF = 0.75 - atan(nf.z, nf.x) / (2.0 * PI);
       float vF = acos(clamp(nf.y, -1.0, 1.0)) / PI;
-      inkF += texture(uText, vec2(uF, vF) + duv * t).r;
+      inkF += textureLod(uText, vec2(uF, vF) + duv * t, lod).r;
 
       // the same point on the far side of the ball
       vec3 nb = vec3(nf.x, nf.y, -nf.z);
       float uB = 0.75 - atan(nb.z, nb.x) / (2.0 * PI);
       float vB = acos(clamp(nb.y, -1.0, 1.0)) / PI;
-      inkB += texture(uText, vec2(uB, vB) + duv * t).r;
+      inkB += textureLod(uText, vec2(uB, vB) + duv * t, lod + 0.6).r;
     }
     inkF /= 5.0;
     inkB /= 5.0;
@@ -151,7 +158,6 @@ void main(){
     // the print is not perfectly even, it has tooth
     orb *= 1.0 + (hash21(p * 520.0) - 0.5) * uGrain;
 
-    float aa = fwidth(r) * 1.5;
     float cov = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, r);
     col = mix(col, orb, cov);
     alpha = cov;

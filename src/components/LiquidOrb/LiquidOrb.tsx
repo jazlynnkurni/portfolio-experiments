@@ -19,6 +19,8 @@ const CONTROLS: Control[] = [
   { key: "tilt", label: "axis lean", min: -0.7, max: 0.7, step: 0.02 },
   { key: "ink", label: "ink", min: 0.4, max: 2.5, step: 0.02 },
   { key: "edgeInk", label: "edge ink", min: 0, max: 1.5, step: 0.02 },
+  { key: "through", label: "far side", min: 0, max: 1.6, step: 0.02 },
+  { key: "swirl", label: "swirl", min: 0, max: 2, step: 0.02 },
   { key: "radius", label: "size", min: 0.5, max: 1, step: 0.01 },
   { key: "grain", label: "grain", min: 0, max: 0.25, step: 0.005 },
 ];

@@ -10,18 +10,22 @@ export type OrbParams = {
   edgeInk: number;
   radius: number;
   grain: number;
+  through: number;
+  swirl: number;
 };
 
 export const DEFAULT_PARAMS: OrbParams = {
   speed: 0.34,
   tilt: 0.12,
-  wobble: 0.055,
+  wobble: 0.075,
   wobScale: 2.1,
   wobSpeed: 0.22,
   ink: 1.35,
   edgeInk: 0.55,
   radius: 0.92,
   grain: 0.05,
+  through: 0.85,
+  swirl: 0.9,
 };
 
 export type OrbHandle = {
@@ -197,6 +201,8 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
     gl.uniform1f(u("uEdgeInk"), P.edgeInk);
     gl.uniform1f(u("uRadius"), P.radius);
     gl.uniform1f(u("uGrain"), P.grain);
+    gl.uniform1f(u("uThrough"), P.through);
+    gl.uniform1f(u("uSwirl"), P.swirl);
     gl.uniform3f(u("uPaper"), 1.0, 1.0, 1.0);
     gl.uniform3f(u("uOrb"), 0.93, 0.42, 0.09);
     gl.uniform3f(u("uType"), 0.06, 0.05, 0.05);

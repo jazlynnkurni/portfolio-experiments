@@ -39,6 +39,8 @@ uniform float uGrain;
 uniform vec3  uPaper;
 uniform vec3  uOrb;
 uniform vec3  uType;
+uniform float uThrough;   // how much of the far side shows
+uniform float uSwirl;
 uniform sampler2D uText;
 
 out vec4 fragColor;
@@ -99,30 +101,50 @@ void main(){
     vec3 sn = rotX(uTilt) * rotY(uSpin) * n;
 
     // Liquid: the surface coordinate is pushed around before the type is read
-    // off it, so the letters ride on something that is still settling. It
-    // builds toward the rim, where a small push covers a lot of surface.
+    // off it, so the letters ride on something still settling. It builds
+    // toward the rim, where a small push covers a lot of surface.
     float grazing = 1.0 - z;
     vec3 w = sn * uWobScale + vec3(0.0, 0.0, uTime * uWobSpeed);
     float wx = fbm(w) - 0.5;
     float wy = fbm(w + vec3(19.3, 7.1, 4.2)) - 0.5;
-    float amt = uWobble * (0.35 + 1.65 * grazing * grazing);
-    sn = normalize(sn + vec3(wx, wy, 0.0) * amt);
 
-    // equirectangular lookup, which is how the type is laid out
-    float u = 0.75 - atan(sn.z, sn.x) / (2.0 * PI);
-    float v = acos(clamp(sn.y, -1.0, 1.0)) / PI;
+    // and a swirl about the axis, which is what drags the type into those long
+    // arcs chasing the rim rather than merely rippling it
+    float rim = grazing * grazing;
+    float swirl = (fbm(sn * 1.3 + vec3(0.0, 0.0, uTime * 0.13)) - 0.5) * uSwirl * rim;
+    float cs = cos(swirl), ss = sin(swirl);
+    vec3 sw = vec3(sn.x * cs - sn.z * ss, sn.y, sn.x * ss + sn.z * cs);
 
-    // Near the silhouette a pixel covers a huge slice of the surface, so one
-    // sample aliases badly. Smear along the direction the surface is running.
-    vec2 duv = vec2(0.0015 + 0.02 * grazing * grazing, 0.0);
-    float ink = 0.0;
+    float amt = uWobble * (0.06 + 2.4 * rim);
+    vec3 nf = normalize(sw + vec3(wx, wy, 0.0) * amt);
+
+    // Reading the type off a surface coordinate, twice: once on the near face,
+    // once on the far one. The ball passes enough light that the writing on the
+    // back shows through, and because we see it from behind it arrives mirrored
+    // and hugging the silhouette. That crowded rim is most of the character.
+    vec2 duv = vec2(0.0015 + 0.03 * grazing * grazing, 0.0);
+
+    float inkF = 0.0;
+    float inkB = 0.0;
     for (int i = -2; i <= 2; i++){
       float t = float(i) / 2.0;
-      ink += texture(uText, vec2(u, v) + duv * t).r;
-    }
-    ink /= 5.0;
+      float uF = 0.75 - atan(nf.z, nf.x) / (2.0 * PI);
+      float vF = acos(clamp(nf.y, -1.0, 1.0)) / PI;
+      inkF += texture(uText, vec2(uF, vF) + duv * t).r;
 
-    ink = clamp(ink * (uInk + uEdgeInk * grazing), 0.0, 1.0);
+      // the same point on the far side of the ball
+      vec3 nb = vec3(nf.x, nf.y, -nf.z);
+      float uB = 0.75 - atan(nb.z, nb.x) / (2.0 * PI);
+      float vB = acos(clamp(nb.y, -1.0, 1.0)) / PI;
+      inkB += texture(uText, vec2(uB, vB) + duv * t).r;
+    }
+    inkF /= 5.0;
+    inkB /= 5.0;
+
+    // the far side reads strongest where the ball is thinnest to look through,
+    // which is right at the edge
+    float through = uThrough * smoothstep(0.15, 0.95, grazing);
+    float ink = clamp(inkF * (uInk + uEdgeInk * grazing) + inkB * through, 0.0, 1.0);
 
     vec3 orb = mix(uOrb, uType, ink);
 

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_PARAMS, parseBlocks, startOrb, type OrbParams, type OrbHandle } from "./engine";
+import {
+  DEFAULT_COLORS, DEFAULT_PARAMS, parseBlocks, startOrb,
+  type OrbColors, type OrbParams, type OrbHandle,
+} from "./engine";
 import styles from "./LiquidOrb.module.css";
 
 type LiquidOrbProps = {
@@ -45,6 +48,8 @@ export default function LiquidOrb({ variant = "full", text: initialText }: Liqui
   const liveRef = useRef<OrbParams>({ ...DEFAULT_PARAMS });
   const [params, setParams] = useState<OrbParams>({ ...DEFAULT_PARAMS });
   const [text, setText] = useState(initialText ?? DEFAULT_TEXT);
+  const [colors, setColors] = useState<OrbColors>({ ...DEFAULT_COLORS });
+  const colorsRef = useRef<OrbColors>({ ...DEFAULT_COLORS });
   const [panelOpen, setPanelOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +61,7 @@ export default function LiquidOrb({ variant = "full", text: initialText }: Liqui
       handle = startOrb(canvas, {
         params: liveRef.current,
         blocks: parseBlocks(initialText ?? DEFAULT_TEXT),
+        colors: colorsRef.current,
         onError: (message) => setError(message),
       });
       handleRef.current = handle;
@@ -69,6 +75,13 @@ export default function LiquidOrb({ variant = "full", text: initialText }: Liqui
   const setParam = useCallback((key: keyof OrbParams, value: number) => {
     liveRef.current[key] = value;
     setParams((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const onColor = useCallback((key: keyof OrbColors, value: string) => {
+    const next = { ...colorsRef.current, [key]: value };
+    colorsRef.current = next;
+    setColors(next);
+    handleRef.current?.setColors(next);
   }, []);
 
   const onText = useCallback((value: string) => {
@@ -97,6 +110,24 @@ export default function LiquidOrb({ variant = "full", text: initialText }: Liqui
           </button>
           {panelOpen ? (
             <div className={styles.panel}>
+              <div className={styles.swatches}>
+                {([
+                  ["orb", "orb"],
+                  ["type", "type"],
+                  ["page", "behind"],
+                ] as [keyof OrbColors, string][]).map(([key, label]) => (
+                  <label key={key} className={styles.swatch}>
+                    <input
+                      type="color"
+                      value={colors[key]}
+                      onChange={(e) => onColor(key, e.target.value)}
+                      aria-label={label + " colour"}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+
               <label className={styles.row}>
                 <span>words</span>
                 <b>{parseBlocks(text).length} blocks</b>

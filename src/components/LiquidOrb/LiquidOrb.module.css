@@ -100,3 +100,38 @@
   font: 11.5px/1.45 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
 }
 .text:focus { outline: 2px solid rgba(60, 90, 160, 0.45); outline-offset: 1px; }
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.swatch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.swatch input[type="color"] {
+  appearance: none;
+  width: 100%;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+.swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.swatch input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(28, 27, 26, 0.16);
+}
+.swatch span {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: rgba(28, 27, 26, 0.5);
+}

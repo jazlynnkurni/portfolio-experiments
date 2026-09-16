@@ -28,15 +28,39 @@ export const DEFAULT_PARAMS: OrbParams = {
   swirl: 0.9,
 };
 
+export type OrbColors = {
+  orb: string;
+  type: string;
+  page: string;
+};
+
+export const DEFAULT_COLORS: OrbColors = {
+  orb: "#ed6b17",
+  type: "#0f0d0d",
+  page: "#ffffff",
+};
+
+// The shader writes straight out with no tonemap, so these go in as they are
+// rather than being linearised first.
+function hex3(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(v, 16);
+  if (Number.isNaN(n)) return [0, 0, 0];
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
 export type OrbHandle = {
   params: OrbParams;
   setBlocks: (blocks: string[][]) => void;
+  setColors: (colors: OrbColors) => void;
   dispose: () => void;
 };
 
 type Options = {
   params?: OrbParams;
   blocks?: string[][];
+  colors?: OrbColors;
   onError?: (message: string) => void;
 };
 
@@ -101,6 +125,7 @@ export function parseBlocks(text: string): string[][] {
 export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle {
   const onError = opts.onError ?? (() => {});
   const P: OrbParams = opts.params ?? { ...DEFAULT_PARAMS };
+  let C: OrbColors = opts.colors ?? { ...DEFAULT_COLORS };
 
   const ctx = cvs.getContext("webgl2", { antialias: false, alpha: true, premultipliedAlpha: false });
   if (!ctx) throw new Error("this needs webgl2, and this browser did not give one up.");
@@ -225,9 +250,10 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
     gl.uniform1f(u("uGrain"), P.grain);
     gl.uniform1f(u("uThrough"), P.through);
     gl.uniform1f(u("uSwirl"), P.swirl);
-    gl.uniform3f(u("uPaper"), 1.0, 1.0, 1.0);
-    gl.uniform3f(u("uOrb"), 0.93, 0.42, 0.09);
-    gl.uniform3f(u("uType"), 0.06, 0.05, 0.05);
+    const cp = hex3(C.page), co = hex3(C.orb), ct = hex3(C.type);
+    gl.uniform3f(u("uPaper"), cp[0], cp[1], cp[2]);
+    gl.uniform3f(u("uOrb"), co[0], co[1], co[2]);
+    gl.uniform3f(u("uType"), ct[0], ct[1], ct[2]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     raf = requestAnimationFrame(frame);
@@ -238,6 +264,7 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
   return {
     params: P,
     setBlocks(blocks: string[][]) { upload(blocks); },
+    setColors(colors: OrbColors) { C = colors; },
     dispose() {
       stopped = true;
       cancelAnimationFrame(raf);

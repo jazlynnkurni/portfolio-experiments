@@ -27,8 +27,7 @@ in vec2 vUv;
 
 uniform vec2  uRes;
 uniform float uTime;
-uniform float uSpin;      // accumulated turn, radians
-uniform float uTilt;      // axis lean
+uniform mat3  uRot;       // where the ball has got to, as a frame
 uniform float uWobble;    // how much the surface moves
 uniform float uWobScale;
 uniform float uWobSpeed;
@@ -75,15 +74,6 @@ float fbm(vec3 p){
   return s;
 }
 
-mat3 rotY(float t){
-  float c = cos(t), s = sin(t);
-  return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
-}
-mat3 rotX(float t){
-  float c = cos(t), s = sin(t);
-  return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c);
-}
-
 void main(){
   vec2 p = (vUv * uRes - uRes * 0.5) / min(uRes.x, uRes.y) * 2.0;
 
@@ -101,7 +91,7 @@ void main(){
     vec3 n = normalize(vec3(p / uRadius, z));
 
     // turn the ball, not the type
-    vec3 sn = rotX(uTilt) * rotY(uSpin) * n;
+    vec3 sn = uRot * n;
 
     // Liquid: the surface coordinate is pushed around before the type is read
     // off it, so the letters ride on something still settling. It builds

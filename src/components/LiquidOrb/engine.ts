@@ -2,7 +2,7 @@ import { VS_QUAD, FS_ORB } from "./shaders";
 
 export type OrbParams = {
   speed: number;
-  tilt: number;
+  follow: number;
   wobble: number;
   wobScale: number;
   wobSpeed: number;
@@ -16,7 +16,7 @@ export type OrbParams = {
 
 export const DEFAULT_PARAMS: OrbParams = {
   speed: 0.34,
-  tilt: 0.12,
+  follow: 0.55,
   wobble: 0.075,
   wobScale: 2.1,
   wobSpeed: 0.22,
@@ -184,19 +184,68 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
   let ro: ResizeObserver | null = null;
   if (window.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(cvs); }
 
-  // drag to turn it, and it keeps going when let go
-  let spin = 0, spinVel = 0, dragging = false, lastX = 0;
+  // ------------------------------------------------------------ the ball
+  // A trackball rather than a turntable. Dragging turns it about an axis lying
+  // in the screen, across the way the hand moved, which is what makes a ball
+  // feel like a ball: push the top and it rolls away, push the side and it
+  // spins. A pair of yaw and pitch angles cannot do that without eventually
+  // locking up, so the state is a frame that gets turned, never two numbers.
+  const R = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+
+  // angular velocity as an axis scaled by its rate: it keeps rolling when let
+  // go, and the cursor feeds into the same thing
+  let wx = 0, wy = 0, wz = 0;
+
+  function turn(ax: number, ay: number, az: number, ang: number) {
+    if (!ang) return;
+    const l = Math.hypot(ax, ay, az) || 1;
+    const x = ax / l, y = ay / l, z = az / l;
+    const c = Math.cos(ang), s = Math.sin(ang), k = 1 - c;
+    const m = [
+      c + x * x * k,     x * y * k - z * s, x * z * k + y * s,
+      y * x * k + z * s, c + y * y * k,     y * z * k - x * s,
+      z * x * k - y * s, z * y * k + x * s, c + z * z * k,
+    ];
+    const o = Array.from(R);
+    // premultiplied, so the turn happens in the viewer's frame not the ball's
+    for (let r = 0; r < 3; r++) {
+      for (let col = 0; col < 3; col++) {
+        R[r * 3 + col] =
+          m[r * 3 + 0] * o[0 * 3 + col] +
+          m[r * 3 + 1] * o[1 * 3 + col] +
+          m[r * 3 + 2] * o[2 * 3 + col];
+      }
+    }
+  }
+
+  let dragging = false, lastX = 0, lastY = 0;
+  let pointerIn = false, ptx = 0, pty = 0;
+
+  const rel = (e: PointerEvent) => {
+    const r = cvs.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / Math.max(1, r.width)) * 2 - 1,
+      y: ((e.clientY - r.top) / Math.max(1, r.height)) * 2 - 1,
+    };
+  };
+
   const onDown = (e: PointerEvent) => {
-    dragging = true; lastX = e.clientX; spinVel = 0;
+    dragging = true;
+    lastX = e.clientX; lastY = e.clientY;
+    wx = wy = wz = 0;
     cvs.setPointerCapture(e.pointerId);
     cvs.style.cursor = "grabbing";
   };
   const onMove = (e: PointerEvent) => {
+    const q = rel(e);
+    ptx = q.x; pty = q.y; pointerIn = true;
     if (!dragging) return;
-    const d = (e.clientX - lastX) * 0.008;
-    spin -= d;
-    spinVel = -d * 60;
-    lastX = e.clientX;
+    const dx = (e.clientX - lastX) * 0.010;
+    const dy = (e.clientY - lastY) * 0.010;
+    lastX = e.clientX; lastY = e.clientY;
+    turn(dy, dx, 0, Math.hypot(dx, dy));
+    // hand the motion over so it carries on after release
+    wx = dy * 22; wy = dx * 22; wz = 0;
   };
   const onUp = (e: PointerEvent) => {
     if (!dragging) return;
@@ -204,10 +253,12 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
     try { cvs.releasePointerCapture(e.pointerId); } catch { /* gone */ }
     cvs.style.cursor = "grab";
   };
+  const onLeave = () => { pointerIn = false; };
   cvs.addEventListener("pointerdown", onDown);
   cvs.addEventListener("pointermove", onMove);
   cvs.addEventListener("pointerup", onUp);
   cvs.addEventListener("pointercancel", onUp);
+  cvs.addEventListener("pointerleave", onLeave);
   cvs.style.cursor = "grab";
 
   let raf = 0, stopped = false, last = performance.now(), t = 0;
@@ -219,12 +270,24 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
     if (!(dt > 0) || dt > 0.1) dt = 1 / 60;
     t += dt;
 
-    if (dragging) {
-      // the hand has it
-    } else {
-      spin += (P.speed + spinVel) * dt;
-      spinVel *= Math.exp(-dt * 1.6);
-      if (Math.abs(spinVel) < 0.01) spinVel = 0;
+    if (!dragging) {
+      // left alone it keeps rolling and slowly gives it up, the way something
+      // heavy does, and nothing snaps back upright because a ball has no
+      // upright to snap to
+      turn(wx, wy, wz, Math.hypot(wx, wy, wz) * dt);
+      const damp = Math.exp(-dt * 0.9);
+      wx *= damp; wy *= damp; wz *= damp;
+
+      // the cursor leans on it, so it drifts under the hand rather than
+      // sitting dead
+      if (pointerIn) {
+        const reach = Math.max(0, 1.0 - Math.hypot(ptx, pty));
+        wy += ptx * reach * P.follow * dt * 9.0;
+        wx += pty * reach * P.follow * dt * 9.0;
+      }
+
+      // and a slow turn underneath it all
+      turn(0, 1, 0, P.speed * dt);
     }
 
     resize();
@@ -239,8 +302,7 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
     gl.uniform1i(u("uText"), 0);
     gl.uniform2f(u("uRes"), W, H);
     gl.uniform1f(u("uTime"), t);
-    gl.uniform1f(u("uSpin"), spin);
-    gl.uniform1f(u("uTilt"), P.tilt);
+    gl.uniformMatrix3fv(u("uRot"), false, R);
     gl.uniform1f(u("uWobble"), P.wobble);
     gl.uniform1f(u("uWobScale"), P.wobScale);
     gl.uniform1f(u("uWobSpeed"), P.wobSpeed);

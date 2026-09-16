@@ -19,7 +19,7 @@ const CONTROLS: Control[] = [
   { key: "wobble", label: "liquid", min: 0, max: 0.2, step: 0.002 },
   { key: "wobScale", label: "liquid scale", min: 0.4, max: 6, step: 0.05 },
   { key: "wobSpeed", label: "liquid speed", min: 0, max: 1.2, step: 0.02 },
-  { key: "tilt", label: "axis lean", min: -0.7, max: 0.7, step: 0.02 },
+  { key: "follow", label: "follows cursor", min: 0, max: 2, step: 0.02 },
   { key: "ink", label: "ink", min: 0.4, max: 2.5, step: 0.02 },
   { key: "edgeInk", label: "edge ink", min: 0, max: 1.5, step: 0.02 },
   { key: "through", label: "far side", min: 0, max: 1.6, step: 0.02 },

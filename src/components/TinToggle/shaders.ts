@@ -250,15 +250,25 @@ void main(){
     vec2 tslope = vec2(thx, thy) / (2.0 * e) * uPress * trackR * 0.55;
     vec3 Nt = normalize(vec3(-tslope - gdir * (1.0 - bulge) * 0.35, 1.0));
 
-    // off: a plain glass trough, the page coming through
-    vec3 glass = page * vec3(0.975, 0.985, 1.005) + vec3(0.035, 0.040, 0.050) * bulge;
+    vec3 Vt = vec3(0.0, 0.0, 1.0);
+
+    // Off, the channel is white, but it is the same struck channel: the die is
+    // still in it, shaded off the same engraved normal, so the ornament reads
+    // as relief in a pale matte material rather than disappearing. Only the
+    // fill changes between the two ends.
+    float ndlW = max(dot(Nt, sun), 0.0);
+    vec3 white = vec3(0.965, 0.970, 0.982) * (0.62 + 0.38 * ndlW);
+    // hollows shade, crowns stay bright, which is all the relief needs
+    white *= mix(0.74, 1.04, smoothstep(0.0, 0.62, th0));
+    // a soft sheen rather than a metal highlight
+    white += vec3(1.0, 0.995, 0.99) * pow(max(dot(Nt, normalize(sun + Vt)), 0.0), 36.0) * 0.22;
     float lip = smoothstep(0.16, 0.0, abs(dTrack)) * (1.0 - bulge);
-    glass += vec3(0.30, 0.33, 0.38) * lip * 0.85;
+    white += vec3(0.16, 0.17, 0.20) * lip * 0.7;
     float wall = dot(gdir, normalize(sun.xy));
-    glass *= 1.0 + wall * (1.0 - bulge) * 0.35;
+    white *= 1.0 + wall * (1.0 - bulge) * 0.22;
+    vec3 glass = white;
 
     // on: the trough is struck tin, and the ornament in it lights up
-    vec3 Vt = vec3(0.0, 0.0, 1.0);
     vec3 Rt = reflect(-Vt, Nt);
     float ndvT = max(dot(Nt, Vt), 1e-4);
     vec3 F0 = vec3(0.80, 0.825, 0.865);

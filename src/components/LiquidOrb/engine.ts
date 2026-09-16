@@ -21,22 +21,22 @@ export const DEFAULT_PARAMS: OrbParams = {
   wobScale: 2.1,
   wobSpeed: 0.22,
   ink: 1.35,
-  edgeInk: 0.55,
+  edgeInk: 0.95,
   radius: 0.92,
   grain: 0.05,
-  through: 0.85,
+  through: 1.05,
   swirl: 0.9,
 };
 
 export type OrbHandle = {
   params: OrbParams;
-  setLines: (lines: string[]) => void;
+  setBlocks: (blocks: string[][]) => void;
   dispose: () => void;
 };
 
 type Options = {
   params?: OrbParams;
-  lines?: string[];
+  blocks?: string[][];
   onError?: (message: string) => void;
 };
 
@@ -44,7 +44,7 @@ type Options = {
 // sphere reads from: x is longitude all the way round, y is pole to pole. Type
 // is kept to a band either side of the equator, because anything near a pole
 // gets wrung out into a spiral as the projection converges.
-function drawText(lines: string[]): HTMLCanvasElement {
+function drawText(blocks: string[][]): HTMLCanvasElement {
   const W = 2048, H = 1024;
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
@@ -56,24 +56,46 @@ function drawText(lines: string[]): HTMLCanvasElement {
   g.textAlign = "center";
   g.textBaseline = "middle";
 
-  // one face of the ball is half the sheet, so the block is sized against that
-  const faceW = W * 0.46;
-  const blocks = lines.filter((l) => l.trim().length > 0);
-  const lineH = H * 0.085;
-  const top = H * 0.5 - ((blocks.length - 1) * lineH) / 2;
+  const live = blocks.filter((b) => b.some((l) => l.trim().length > 0));
+  if (live.length === 0) return cv;
 
-  blocks.forEach((line, i) => {
-    let size = H * 0.075;
-    g.font = `700 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    // shrink anything that would run off the visible face
-    while (g.measureText(line).width > faceW && size > 12) {
-      size *= 0.94;
+  // Blocks are spread right round the ball rather than stacked on one face.
+  // That is what fills the rest of the surface: while one block is turned
+  // toward you and readable, the others are near the limb, compressed almost
+  // edge on into the thin arcs and specks that make the thing look alive.
+  // A single block leaves the remaining two thirds of the sphere bare.
+  const faceW = W * 0.42;
+
+  live.forEach((block, bi) => {
+    const lines = block.filter((l) => l.trim().length > 0);
+    const cx = W * ((bi / live.length) + 0.5 / live.length);
+    // nudge each block off the equator so they do not all ride the same line
+    const drift = (bi % 2 === 0 ? -1 : 1) * H * 0.045 * (bi > 1 ? 1 : 0.4);
+    const lineH = H * 0.082;
+    const top = H * 0.5 + drift - ((lines.length - 1) * lineH) / 2;
+
+    lines.forEach((line, i) => {
+      let size = H * 0.072;
       g.font = `700 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-    }
-    g.fillText(line, W * 0.5, top + i * lineH);
+      while (g.measureText(line).width > faceW && size > 12) {
+        size *= 0.94;
+        g.font = `700 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      }
+      // drawn twice, wrapped, so a block sitting on the seam is not cut in half
+      g.fillText(line, cx, top + i * lineH);
+      g.fillText(line, cx > W * 0.5 ? cx - W : cx + W, top + i * lineH);
+    });
   });
 
   return cv;
+}
+
+// blank lines separate one block from the next
+export function parseBlocks(text: string): string[][] {
+  return text
+    .split(/\n\s*\n/)
+    .map((b) => b.split("\n").filter((l) => l.trim().length > 0))
+    .filter((b) => b.length > 0);
 }
 
 export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle {
@@ -114,14 +136,14 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-  function upload(lines: string[]) {
-    const canvas = drawText(lines);
+  function upload(blocks: string[][]) {
+    const canvas = drawText(blocks);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
     gl.generateMipmap(gl.TEXTURE_2D);
   }
-  upload(opts.lines ?? ["Yale Photo", "Lecture Series", "presents"]);
+  upload(opts.blocks ?? [["Yale Photo", "Pop Up", "Lecture Series", "presents"], ["JEFF WALL"], ["Monday", "April 26, 6pm"]]);
 
   let W = 0, H = 0;
   function resize() {
@@ -215,7 +237,7 @@ export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle 
 
   return {
     params: P,
-    setLines(lines: string[]) { upload(lines); },
+    setBlocks(blocks: string[][]) { upload(blocks); },
     dispose() {
       stopped = true;
       cancelAnimationFrame(raf);

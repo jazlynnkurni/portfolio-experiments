@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_PARAMS, startOrb, type OrbParams, type OrbHandle } from "./engine";
+import { DEFAULT_PARAMS, parseBlocks, startOrb, type OrbParams, type OrbHandle } from "./engine";
 import styles from "./LiquidOrb.module.css";
 
 type LiquidOrbProps = {
   variant?: "full" | "embed";
-  lines?: string[];
+  text?: string;
 };
 
 type Control = { key: keyof OrbParams; label: string; min: number; max: number; step: number };
@@ -25,14 +25,26 @@ const CONTROLS: Control[] = [
   { key: "grain", label: "grain", min: 0, max: 0.25, step: 0.005 },
 ];
 
-const DEFAULT_LINES = ["Yale Photo", "Lecture Series", "presents"];
+// A blank line starts a new block, and blocks are spread round the ball, so
+// while one is readable the others are near the limb doing the churning.
+const DEFAULT_TEXT = [
+  "Yale Photo",
+  "Pop Up",
+  "Lecture Series",
+  "presents",
+  "",
+  "JEFF WALL",
+  "",
+  "Monday",
+  "April 26, 6pm",
+].join("\n");
 
-export default function LiquidOrb({ variant = "full", lines }: LiquidOrbProps) {
+export default function LiquidOrb({ variant = "full", text: initialText }: LiquidOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const liveRef = useRef<OrbParams>({ ...DEFAULT_PARAMS });
   const [params, setParams] = useState<OrbParams>({ ...DEFAULT_PARAMS });
-  const [text, setText] = useState((lines ?? DEFAULT_LINES).join("\n"));
+  const [text, setText] = useState(initialText ?? DEFAULT_TEXT);
   const [panelOpen, setPanelOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +55,7 @@ export default function LiquidOrb({ variant = "full", lines }: LiquidOrbProps) {
     try {
       handle = startOrb(canvas, {
         params: liveRef.current,
-        lines: (lines ?? DEFAULT_LINES),
+        blocks: parseBlocks(initialText ?? DEFAULT_TEXT),
         onError: (message) => setError(message),
       });
       handleRef.current = handle;
@@ -52,7 +64,7 @@ export default function LiquidOrb({ variant = "full", lines }: LiquidOrbProps) {
       queueMicrotask(() => setError(message));
     }
     return () => { handle?.dispose(); handleRef.current = null; };
-  }, [lines]);
+  }, [initialText]);
 
   const setParam = useCallback((key: keyof OrbParams, value: number) => {
     liveRef.current[key] = value;
@@ -61,7 +73,7 @@ export default function LiquidOrb({ variant = "full", lines }: LiquidOrbProps) {
 
   const onText = useCallback((value: string) => {
     setText(value);
-    handleRef.current?.setLines(value.split("\n"));
+    handleRef.current?.setBlocks(parseBlocks(value));
   }, []);
 
   return (
@@ -87,10 +99,10 @@ export default function LiquidOrb({ variant = "full", lines }: LiquidOrbProps) {
             <div className={styles.panel}>
               <label className={styles.row}>
                 <span>words</span>
-                <b>{text.split("\n").length} lines</b>
+                <b>{parseBlocks(text).length} blocks</b>
                 <textarea
                   className={styles.text}
-                  rows={4}
+                  rows={7}
                   value={text}
                   onChange={(e) => onText(e.target.value)}
                 />

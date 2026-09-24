@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Typeform — cells</title>
+<style>
+  :root{
+    --fs:25px; --rowh:30px; --stretch:62px; --speed:.23; --drift:.74; --lead:6px;
+    --ink:#000; --band:#ececec; --rule:#8b8b8b; --paper:#fff;
+  }
+  *{box-sizing:border-box} html,body{margin:0;min-height:100%}
+  body{background:#0b0b0b;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+       display:grid;place-items:start center;padding:40px 20px 60px}
+  .sheet{background:var(--paper);width:min(620px,92vw);padding:40px 36px}
+  .stack{display:flex;flex-direction:column;gap:var(--lead)}
+  .line{display:flex;align-items:stretch}
+  /* One cell per letter. The letter is left-aligned and the CELL grows, so the
+     spacing opens on the right of each glyph. Top and bottom rules are on the
+     cell, and because neighbouring cells touch, those rules run unbroken across
+     the whole row — that continuity is what holds the word together while the
+     widths move. Left border only: the hairline at each letter's start. No
+     right border, or every seam would double up. */
+  .cell{flex:0 0 auto;height:var(--rowh);background:var(--band);
+        border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+        border-left:1px solid var(--rule);
+        display:flex;align-items:center;overflow:hidden;will-change:width}
+  .cell:last-child{border-right:1px solid var(--rule)}
+  .ch{font-size:var(--fs);font-weight:400;line-height:1;color:var(--ink);
+      padding-left:1.5px;white-space:pre}
+  .line.nofill .cell{background:transparent}
+  .line.norule .cell{border-left-color:transparent}
+
+  .panel{position:fixed;right:18px;top:18px;width:236px;background:#141414;color:#ddd;
+         border:1px solid #262626;border-radius:12px;padding:14px;font:11px/1.4 "Helvetica Neue",Helvetica,Arial,sans-serif;z-index:20}
+  .panel h4{margin:0 0 10px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#888;font-weight:500}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0}
+  .row input[type=range]{width:110px}
+  .row output{font-variant-numeric:tabular-nums;color:#aaa;min-width:36px;text-align:right}
+  .seg{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+  .seg button{flex:1 1 46%;background:#1d1d1d;border:1px solid #2c2c2c;color:#bbb;border-radius:7px;
+              padding:6px 8px;font:inherit;font-size:10px;cursor:pointer}
+  .seg button[aria-pressed=true]{background:#C97836;border-color:#C97836;color:#fff}
+  textarea{width:100%;height:150px;background:#0e0e0e;color:#ccc;border:1px solid #2a2a2a;
+           border-radius:8px;padding:8px;font:inherit;font-size:10.5px;line-height:1.5;resize:vertical;margin-top:6px}
+</style></head><body>
+
+<div class="sheet"><div class="stack" id="stack"></div></div>
+
+<div class="panel">
+  <h4>Form</h4>
+  <div class="row"><span>speed</span><input id="speed" type="range" min="0" max="60" value="23"><output id="oSpeed">0.23</output></div>
+  <div class="row"><span>stretch</span><input id="stretch" type="range" min="0" max="90" value="62"><output id="oStretch">62</output></div>
+  <div class="row"><span>drift</span><input id="drift" type="range" min="0" max="150" value="74"><output id="oDrift">0.74</output></div>
+  <div class="row"><span>type size</span><input id="fs" type="range" min="11" max="34" value="25"><output id="oFs">25</output></div>
+  <div class="row"><span>row height</span><input id="rowh" type="range" min="14" max="42" value="30"><output id="oRowh">30</output></div>
+  <div class="row"><span>leading</span><input id="lead" type="range" min="0" max="14" value="6"><output id="oLead">6</output></div>
+  <div class="seg">
+    <button id="bFill" aria-pressed="false">band</button>
+    <button id="bRule" aria-pressed="true">stems</button>
+    <button id="bOrange" aria-pressed="false">orange</button>
+    <button id="bFreeze" aria-pressed="false">freeze</button>
+  </div>
+  <h4 style="margin-top:16px">Words — one per line</h4>
+  <textarea id="words" spellcheck="false"></textarea>
+</div>
+
+<script>
+const DEFAULT = `JAZLYNN
+DESIGN
+NEWYORK
+VERSATILE
+CURIOUS
+CRAFT
+CHARM
+MOTION
+COGNITION
+ENGINEERING`;
+
+const stack = document.getElementById('stack');
+const root  = document.documentElement;
+const $ = id => document.getElementById(id);
+let lines = [], frozen = false;
+
+// Measure each glyph in the live font so a cell's minimum is the letter's own
+// width. Without this, I and W get the same base and the closed state looks
+// mechanically gridded instead of set.
+const gauge = document.createElement('canvas').getContext('2d');
+function measure(ch, fs){
+  gauge.font = `400 ${fs}px "Helvetica Neue",Helvetica,Arial,sans-serif`;
+  return Math.ceil(gauge.measureText(ch).width);
+}
+
+function build(text){
+  const fs = +$('fs').value;
+  stack.innerHTML = '';
+  lines = text.split('\n').map(s => s.replace(/\s+$/,'')).filter(Boolean).map((word, li) => {
+    const el = document.createElement('div');
+    el.className = 'line';
+    const cells = [...word].map((ch, ci) => {
+      const cell = document.createElement('span');
+      cell.className = 'cell';
+      const span = document.createElement('span');
+      span.className = 'ch'; span.textContent = ch;
+      cell.appendChild(span);
+      el.appendChild(cell);
+      return { cell, base: measure(ch, fs) + 4, ci };
+    });
+    stack.appendChild(el);
+    return { el, cells, seed: li };
+  });
+  applyToggles();
+}
+
+let t0 = performance.now();
+function frame(now){
+  if (!frozen){
+    const t = (now - t0)/1000;
+    const speed   = +$('speed').value/100;
+    const stretch = +$('stretch').value;
+    const drift   = +$('drift').value/100;
+    for (const L of lines){
+      for (const c of L.cells){
+        // Phase walks along the word AND down the stack, so the opening
+        // travels diagonally instead of every letter breathing in unison.
+        const k = 0.5 + 0.5*Math.sin(t*speed*Math.PI*2 + L.seed*drift + c.ci*drift*1.7);
+        c.cell.style.width = (c.base + k*k*stretch).toFixed(1) + 'px';
+      }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+const bindPx = (id, cssVar) => {
+  const el = $(id), out = $('o'+id[0].toUpperCase()+id.slice(1));
+  const apply = () => { root.style.setProperty(cssVar, el.value+'px'); out.textContent = el.value;
+                        if (cssVar==='--fs') build($('words').value); };
+  el.addEventListener('input', apply); apply();
+};
+bindPx('fs','--fs'); bindPx('rowh','--rowh'); bindPx('lead','--lead');
+$('speed').addEventListener('input', e => $('oSpeed').textContent = (+e.target.value/100).toFixed(2));
+$('stretch').addEventListener('input', e => $('oStretch').textContent = e.target.value);
+$('drift').addEventListener('input', e => $('oDrift').textContent = (+e.target.value/100).toFixed(2));
+
+function applyToggles(){
+  const fill = $('bFill').getAttribute('aria-pressed')==='true';
+  const rule = $('bRule').getAttribute('aria-pressed')==='true';
+  for (const L of lines){
+    L.el.classList.toggle('nofill', !fill);
+    L.el.classList.toggle('norule', !rule);
+  }
+}
+const toggle = (id, after) => $(id).addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', on); after(on);
+});
+toggle('bFill', applyToggles);
+toggle('bRule', applyToggles);
+toggle('bFreeze', on => frozen = on);
+toggle('bOrange', on => {
+  root.style.setProperty('--ink',  on ? '#C97836' : '#000');
+  root.style.setProperty('--band', on ? 'rgba(201,120,54,.10)' : '#ececec');
+  root.style.setProperty('--rule', on ? 'rgba(201,120,54,.55)' : '#8b8b8b');
+});
+
+const ta = $('words');
+ta.value = DEFAULT;
+ta.addEventListener('input', () => build(ta.value));
+build(DEFAULT);
+requestAnimationFrame(frame);
+</script></body></html>

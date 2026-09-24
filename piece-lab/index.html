@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interactive piece — directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* LOCKED, 2026-09-02. Ground is ALWAYS paper; there is no dark ground any more. */
+  --paper:#F3F1ED; --ink:#14171B;
+  --gold:#A99939; --oxblood:#340414; --charcoal:#1C1A17;
+  --touch:#A99939; --touch-lift:#A99939;
+  --jak:"Plus Jakarta Sans",sans-serif; --hel:"Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0a0a0a;color:#ddd;font-family:var(--hel);font-weight:300;
+     -webkit-font-smoothing:antialiased;padding:40px 32px 80px}
+h1{font-family:var(--jak);font-weight:600;font-size:22px;margin:0 0 6px;color:#f0ede6}
+.sub{font-size:13px;color:#8b8b86;max-width:70ch;line-height:1.6;margin:0 0 40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:28px}
+.piece{border:1px solid #232323;border-radius:16px;overflow:hidden;background:#101010}
+.stage{position:relative;height:340px;cursor:crosshair;touch-action:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.grain{position:absolute;inset:0;pointer-events:none;background-image:var(--noise);
+       background-size:170px 170px;mix-blend-mode:overlay;opacity:.5}
+.cap{padding:14px 16px 16px;border-top:1px solid #1e1e1e}
+.cap h3{font-family:var(--jak);font-weight:600;font-size:13.5px;margin:0 0 5px;color:#e8e5de}
+.cap p{margin:0;font-size:12px;line-height:1.65;color:#8b8b86}
+.verbs{margin-top:10px;font-family:var(--jak);font-weight:500;font-size:10.5px;
+       letter-spacing:.1em;text-transform:uppercase;color:#6c6c68}
+.verbs b{color:var(--touch-lift);font-weight:500}
+.why{margin-top:8px;font-size:11.5px;color:#7a7a75;font-style:italic}
+button.reset{position:absolute;right:10px;top:10px;z-index:4;background:rgba(0,0,0,.5);
+  border:1px solid #333;color:#999;border-radius:999px;padding:4px 10px;font:500 10px var(--jak);cursor:pointer}
+button.reset:hover{color:var(--touch-lift);border-color:var(--touch-lift)}
+</style></head><body>
+
+<h1>Four directions for the interactive piece</h1>
+<p class="sub">All on the palette from :5320, all grained. The test each one has to pass: it has to
+mean something. Yichen's blobs bounce because bouncing looks nice — that is the thing not to copy.</p>
+
+<div class="grid">
+  <div class="piece"><div class="stage" id="s-lens"><canvas data-p="lens"></canvas><div class="grain"></div></div>
+    <div class="cap"><h3>1 · The lens</h3>
+      <p>A real refracting disc: concentric rings sampled at different scales give barrel
+      distortion, and the rim splits into colour fringes. Drag it over the type and the words bend.</p>
+      <div class="verbs"><b>Drag</b> · lens &nbsp; <b>Release</b> · settle</div>
+      <div class="why">You design for a display that works by bending light. The dispersion is already in your HUD's glass.css.</div>
+    </div></div>
+
+  <div class="piece"><div class="stage" id="s-ink"><canvas data-p="ink"></canvas><div class="grain"></div>
+      <button class="reset" data-r="ink">clear</button></div>
+    <div class="cap"><h3>2 · Ink bloom</h3>
+      <p>Pigment spreads into wet paper and keeps creeping after you let go. Overlaps mix
+      <em>subtractively</em>, so two washes go deeper rather than brighter — the way paint does, not light.</p>
+      <div class="verbs"><b>Drag</b> · paint &nbsp; <b>Hold</b> · flood</div>
+      <div class="why">You came to design through painting. This makes the visitor do it.</div>
+    </div></div>
+
+  <div class="piece"><div class="stage" id="s-expo"><canvas data-p="expo"></canvas><div class="grain"></div>
+      <button class="reset" data-r="expo">clear</button></div>
+    <div class="cap"><h3>3 · Graphite</h3>
+      <p>Was a long exposure. A long exposure is light on darkness, so it did not survive the
+      ground being locked to paper. The mechanic did: a surface that accumulates, where passing
+      twice is darker than passing once. On paper that is a pencil, and paper never forgets.</p>
+      <div class="verbs"><b>Move</b> · draw &nbsp; <b>Cross</b> · press</div>
+      <div class="why">Now the closest of the four to "she came up as an artist", and unlike the wash it never becomes a mess.</div>
+    </div></div>
+
+  <div class="piece"><div class="stage" id="s-rec"><canvas data-p="rec"></canvas><div class="grain"></div>
+      <button class="reset" data-r="rec">clear</button></div>
+    <div class="cap"><h3>4 · Track Record, earned by the visit</h3>
+      <p>Same subtractive tissue stack as your piece, but a disc is stamped when <em>you</em> do
+      something rather than when a runner closes a lap. Position comes from where you were when
+      you earned it, so the composition is a record of this visit.</p>
+      <div class="verbs"><b>Click</b> · stamp &nbsp; <b>Wander</b> · drift</div>
+      <div class="why">Keeps the argument that makes your piece good — the picture cannot exist until the work is done — and hands the work to the reader.</div>
+    </div></div>
+</div>
+
+<script>
+/* one grain, shared */
+(function(){const n=document.createElement('canvas');n.width=n.height=170;
+ const g=n.getContext('2d'),d=g.createImageData(170,170);
+ for(let i=0;i<d.data.length;i+=4){const v=118+(Math.random()*72-36);d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}
+ g.putImageData(d,0,0);document.documentElement.style.setProperty('--noise',`url(${n.toDataURL()})`);})();
+
+const V=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const COLS=()=>[V('--gold'),V('--oxblood'),V('--charcoal')];
+/* PIGMENT IS DILUTED BY HOW DARK IT IS. Gold sits at luminance 150 and oxblood at 15:
+   laid at the same strength, one wash of oxblood kills the paper while gold is barely
+   visible. Real watercolour works the same way -- a dark pigment is used thinner -- so
+   the per-drop alpha is scaled by the ink's own lightness rather than being one number
+   for all three. */
+function lumOf(hex){const h=hex.replace('#','');
+  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return (.2126*r+.7152*g+.0722*b)/255;}
+const dilute=(hex)=>Math.max(0.055,Math.min(0.30, 0.06+lumOf(hex)*0.34));
+const hexA=(hex,a)=>hex+Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,'0');
+function fit(cv){const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);
+  cv.width=r.width*d;cv.height=r.height*d;const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);
+  return {c,w:r.width,h:r.height};}
+function ptr(cv,e){const r=cv.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top};}
+
+/* ---------- 1 · LENS ------------------------------------------------------
+ * The page behind it is drawn to an offscreen canvas, then the lens redraws that
+ * texture as N concentric ANNULI, each sampled at a slightly larger scale. Stack
+ * enough rings and the discrete steps read as continuous barrel refraction --
+ * which is a real lens, not a blur pretending to be one. The rim fringes come
+ * from doing the outer rings three times with tiny R/G/B offsets. */
+function lens(cv){
+  let {c,w,h}=fit(cv); const off=document.createElement('canvas'); let oc=off.getContext('2d');
+  let p={x:w*0.5,y:h*0.5}, tgt={...p}, R=78;
+  function scene(){
+    off.width=w;off.height=h;oc=off.getContext('2d');
+    oc.fillStyle=V('--paper');oc.fillRect(0,0,w,h);
+    oc.globalCompositeOperation='multiply';
+    const cols=COLS();
+    for(let i=0;i<7;i++){const a=i*2.4,rad=Math.min(w,h)*(.22+(i%3)*.09);
+      const x=w*.5+Math.cos(a)*w*.22,y=h*.5+Math.sin(a)*h*.2;
+      const g=oc.createRadialGradient(x,y,0,x,y,rad);
+      g.addColorStop(0,hexA(cols[i%3],dilute(cols[i%3])*0.5));g.addColorStop(1,cols[i%3]+'00');
+      oc.fillStyle=g;oc.beginPath();oc.arc(x,y,rad,0,7);oc.fill();}
+    oc.globalCompositeOperation='source-over';
+    oc.fillStyle=V('--ink');oc.font='600 34px "Plus Jakarta Sans",sans-serif';
+    oc.textAlign='center';oc.fillText('Jazlynn Kurniandra',w/2,h*0.52);
+    oc.font='300 14px "Helvetica Neue",sans-serif';oc.fillStyle='rgba(20,23,27,.55)';
+    oc.fillText('designer and engineer',w/2,h*0.52+26);
+  }
+  scene();
+  const draw=()=>{
+    p.x+=(tgt.x-p.x)*0.18; p.y+=(tgt.y-p.y)*0.18;
+    c.clearRect(0,0,w,h); c.drawImage(off,0,0,w,h);
+    const RINGS=26;
+    for(let i=RINGS;i>=1;i--){
+      const t=i/RINGS, r=R*t;
+      const mag=1+0.34*(1-t*t);                 // strongest in the middle, flat at the rim
+      c.save(); c.beginPath(); c.arc(p.x,p.y,r,0,7); c.clip();
+      const sw=w/mag, sh=h/mag;
+      const sx=p.x-(p.x)*(1/mag), sy=p.y-(p.y)*(1/mag);
+      if(t>0.82){ // rim only: three passes, offset, for dispersion
+        c.globalCompositeOperation='lighter';
+        [['#ff2a2a',-1.6],['#2aff88',0],['#2a6bff',1.6]].forEach(([col,dx])=>{
+          c.save();c.globalAlpha=.34;c.translate(dx,0);
+          c.drawImage(off,sx,sy,sw,sh,0,0,w,h);c.restore();});
+        c.globalCompositeOperation='source-over';
+      } else {
+        c.drawImage(off,sx,sy,sw,sh,0,0,w,h);
+      }
+      c.restore();
+    }
+    c.beginPath();c.arc(p.x,p.y,R,0,7);
+    c.strokeStyle='rgba(255,255,255,.22)';c.lineWidth=1;c.stroke();
+    requestAnimationFrame(draw);
+  };
+  const move=(e)=>{tgt=ptr(cv,e);};
+  cv.addEventListener('pointermove',move);
+  new ResizeObserver(()=>{({c,w,h}=fit(cv));scene();}).observe(cv);
+  draw();
+}
+
+/* ---------- 2 · INK BLOOM -------------------------------------------------
+ * MULTIPLY, not lighter. Pigment removes light: two washes crossing go DARKER,
+ * which is the one thing that separates paint from every glow effect on the web.
+ * The creep is a second pass that redraws the wet edge slightly larger and
+ * fainter each frame, so a drop keeps spreading after the hand has gone. */
+function ink(cv){
+  let {c,w,h}=fit(cv), drops=[];
+  const clear=()=>{c.fillStyle=V('--paper');c.fillRect(0,0,w,h);};
+  clear();
+  let down=false, last=null;
+  const add=(x,y,seed)=>{const col=COLS()[(Math.random()*3)|0];
+    drops.push({x,y,r:2,max:26+Math.random()*34,col,a:dilute(col),t:0,seed});};
+  const draw=()=>{
+    c.globalCompositeOperation='multiply';
+    for(const d of drops){
+      if(d.t>1)continue;
+      d.t+=0.012; d.r+=(d.max-d.r)*0.045;
+      const g=c.createRadialGradient(d.x,d.y,0,d.x,d.y,d.r);
+      g.addColorStop(0,hexA(d.col,d.a));g.addColorStop(.65,hexA(d.col,d.a*0.55));g.addColorStop(1,d.col+'00');
+      c.fillStyle=g;c.beginPath();
+      /* the edge is never a circle: a wet front follows the paper's fibre */
+      for(let a=0;a<=6.3;a+=0.14){
+        const wob=1+0.09*Math.sin(a*3+d.seed)+0.05*Math.sin(a*7-d.seed*2);
+        const x=d.x+Math.cos(a)*d.r*wob, y=d.y+Math.sin(a)*d.r*wob;
+        a===0?c.moveTo(x,y):c.lineTo(x,y);
+      }
+      c.fill();
+    }
+    c.globalCompositeOperation='source-over';
+    requestAnimationFrame(draw);
+  };
+  cv.addEventListener('pointerdown',e=>{down=true;const p=ptr(cv,e);add(p.x,p.y,Math.random()*9);last=p;});
+  cv.addEventListener('pointermove',e=>{if(!down)return;const p=ptr(cv,e);
+    if(!last||Math.hypot(p.x-last.x,p.y-last.y)>9){add(p.x,p.y,Math.random()*9);last=p;}});
+  addEventListener('pointerup',()=>{down=false;last=null;});
+  document.querySelector('[data-r=ink]').onclick=()=>{drops=[];clear();};
+  new ResizeObserver(()=>{({c,w,h}=fit(cv));clear();}).observe(cv);
+  draw();
+}
+
+/* ---------- 3 · GRAPHITE ------------------------------------------------
+ * This was a long exposure until the ground was locked to paper, and a long
+ * exposure is light on darkness -- it cannot be done subtractively, so it died
+ * with the dark ground rather than being ported. What survives is the MECHANIC
+ * that made it good: a surface that accumulates, where passing twice over the
+ * same place is darker than passing once.
+ * On paper that is a pencil. Multiply, a soft edge, and no decay at all: paper
+ * does not forget, which is a better fit for this palette than a fade was. */
+function expo(cv){
+  let {c,w,h}=fit(cv), last=null;
+  const clear=()=>{c.fillStyle=V('--paper');c.fillRect(0,0,w,h);};
+  clear();
+  const stroke=(p)=>{
+    const col=V('--charcoal');
+    c.globalCompositeOperation='multiply';
+    /* several offset passes rather than one thick line: a pencil lays grain, and
+       the grain is what makes the second pass over a stroke read as pressure */
+    for(let i=0;i<7;i++){
+      const jx=(Math.random()-.5)*5, jy=(Math.random()-.5)*5;
+      c.strokeStyle=hexA(col,0.028);
+      c.lineWidth=1+Math.random()*2.4; c.lineCap='round';
+      c.beginPath();
+      if(last) c.moveTo(last.x+jx,last.y+jy); else c.moveTo(p.x+jx,p.y+jy);
+      c.lineTo(p.x+jx,p.y+jy); c.stroke();
+    }
+    c.globalCompositeOperation='source-over';
+  };
+  cv.addEventListener('pointermove',e=>{const p=ptr(cv,e);stroke(p);last=p;});
+  cv.addEventListener('pointerleave',()=>{last=null;});
+  document.querySelector('[data-r=expo]').onclick=()=>{last=null;clear();};
+  new ResizeObserver(()=>{({c,w,h}=fit(cv));clear();}).observe(cv);
+}
+
+/* ---------- 4 · TRACK RECORD, EARNED ------------------------------------
+ * The accumulation rule is the only thing changed from your piece: a disc is
+ * stamped by the READER doing something, not by a runner closing a lap. The
+ * subtractive stack, the drift of the centre and the fact that the picture
+ * cannot exist until the work is done all survive intact. */
+function rec(cv){
+  let {c,w,h}=fit(cv), sheets=[], cx=0.5, cy=0.5, t0=performance.now();
+  const clear=()=>{sheets=[];};
+  const draw=(now)=>{
+    const t=(now-t0)/1000;
+    /* the centre never sits still, so consecutive stamps land offset and build a
+       cluster instead of a bullseye */
+    cx=0.5+Math.sin(t*0.21)*0.13; cy=0.5+Math.cos(t*0.17)*0.10;
+    c.fillStyle=V('--paper');c.fillRect(0,0,w,h);
+    c.globalCompositeOperation='multiply';
+    const R=Math.min(w,h)*0.30;
+    sheets.forEach((s,i)=>{
+      const g=c.createRadialGradient(s.x*w,s.y*h,0,s.x*w,s.y*h,R);
+      g.addColorStop(0,hexA(s.col,dilute(s.col)*0.8));g.addColorStop(.8,hexA(s.col,dilute(s.col)*0.45));g.addColorStop(1,s.col+'00');
+      c.fillStyle=g;c.beginPath();c.arc(s.x*w,s.y*h,R,0,7);c.fill();
+    });
+    c.globalCompositeOperation='source-over';
+    c.fillStyle='rgba(20,23,27,.45)';c.font='500 11px "Plus Jakarta Sans",sans-serif';
+    c.fillText(sheets.length ? `${sheets.length} stamped` : 'click to earn one', 14, h-14);
+    requestAnimationFrame(draw);
+  };
+  cv.addEventListener('pointerdown',()=>{
+    sheets.push({x:cx+(Math.random()-.5)*0.06, y:cy+(Math.random()-.5)*0.06,
+                 col:COLS()[sheets.length%3]});
+    if(sheets.length>26)sheets.shift();
+  });
+  document.querySelector('[data-r=rec]').onclick=clear;
+  new ResizeObserver(()=>{({c,w,h}=fit(cv));}).observe(cv);
+  requestAnimationFrame(draw);
+}
+
+const F={lens,ink,expo,rec};
+document.querySelectorAll('canvas[data-p]').forEach(cv=>F[cv.dataset.p](cv));
+</script></body></html>

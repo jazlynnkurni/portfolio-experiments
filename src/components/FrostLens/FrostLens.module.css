@@ -1,0 +1,475 @@
+/* Frosted-glass scanning lens. A specimen plate rendered to canvas, blurred into
+   a mip pyramid, then read back through a droplet whose optical thickness drives
+   how much of the plate survives. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: #9a4c19;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(90, 55, 30, 0.1),
+    0 10px 24px rgba(90, 55, 30, 0.14),
+    0 26px 54px rgba(90, 55, 30, 0.1);
+  cursor: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.embed .frame {
+  aspect-ratio: 3 / 2;
+  border-radius: 10px;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Sits over the shader. Proves the "ink printed on the glass stays sharp"
+   rule from the frosted-bag reference: this text never dissolves. */
+.plateLabel {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(154, 76, 25, 0.55);
+  pointer-events: none;
+}
+
+.readout {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(154, 76, 25, 0.55);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* Over a photograph the burnt-orange chrome disappears into whatever happens to
+   be behind it, so the labels flip to white on a soft shade instead. */
+.plateLabel[data-onphoto="true"],
+.readout[data-onphoto="true"] {
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(154, 76, 25, 0.7);
+}
+
+/* --- controls --- */
+
+.panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px 22px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: rgba(201, 120, 54, 0.06);
+  border: 1px solid rgba(201, 120, 54, 0.16);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.controlHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(154, 76, 25, 0.72);
+}
+
+.controlHead b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: #c97836;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(201, 120, 54, 0.28);
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff5ef;
+  border: 1.5px solid #c97836;
+  box-shadow: 0 1px 3px rgba(90, 55, 30, 0.25);
+}
+
+.slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff5ef;
+  border: 1.5px solid #c97836;
+  box-shadow: 0 1px 3px rgba(90, 55, 30, 0.25);
+}
+
+.slider:focus-visible {
+  box-shadow: 0 0 0 3px rgba(201, 120, 54, 0.25);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.chip {
+  font: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 120, 54, 0.3);
+  background: transparent;
+  color: rgba(154, 76, 25, 0.8);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.chip:hover {
+  border-color: rgba(201, 120, 54, 0.6);
+}
+
+.chip[data-on="true"] {
+  background: #c97836;
+  border-color: #c97836;
+  color: #fff5ef;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   playground variant: full-bleed dark plate with floating panels over it,
+   matching the shape of a shader-playground page. The panels stay real DOM so
+   they keep their crispness and their hit targets while the droplet passes
+   underneath them.
+   --------------------------------------------------------------------------- */
+
+.pg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0a0b;
+  color: #fff;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  cursor: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pgCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pgNav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 0 28px;
+  z-index: 3;
+  cursor: default;
+}
+
+.pgBrand {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.pgBrand b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.pgLinks {
+  display: flex;
+  gap: 22px;
+  font-family: var(--font-sans, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-size: 14px;
+}
+
+.pgLink {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.16s ease;
+}
+
+.pgLink:hover,
+.pgLink[data-on="true"] {
+  color: #fff;
+}
+
+.pgNavRight {
+  margin-left: auto;
+}
+
+.pgGhost {
+  font-family: var(--font-sans, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-size: 13.5px;
+  color: #fff;
+  text-decoration: none;
+  padding: 9px 17px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.pgGhost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* --- floating panels --- */
+
+.pgPanel {
+  position: absolute;
+  top: 104px;
+  z-index: 3;
+  border-radius: 14px;
+  background: rgba(20, 20, 22, 0.82);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  cursor: default;
+  overflow: hidden;
+}
+
+.pgLeft {
+  left: 28px;
+  width: 300px;
+}
+
+.pgRight {
+  right: 28px;
+  width: 336px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+.pgPanelHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pgDot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.pgPanelTitle {
+  margin: 0 0 0 8px;
+  font-family: var(--font-sans, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pgBody {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pgGroup {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.32);
+  margin: 2px 0 -4px;
+}
+
+.pgCtl {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pgCtlHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-sans, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.pgVal {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+/* Track fill is painted with an inline gradient, since a range input cannot
+   express "filled up to the thumb" on its own. */
+.pgSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.pgSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pgSlider::-moz-range-thumb {
+  width: 17px;
+  height: 17px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pgSlider:focus-visible {
+  box-shadow: 0 0 0 3px rgba(201, 120, 54, 0.4);
+}
+
+.pgRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.pgChip {
+  font-family: var(--font-sans, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  font-size: 12.5px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.pgChip:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+
+.pgChip[data-on="true"] {
+  background: #c97836;
+  border-color: #c97836;
+  color: #fff;
+}
+
+.pgVersion {
+  position: absolute;
+  left: 28px;
+  bottom: 20px;
+  z-index: 3;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.28);
+  cursor: default;
+}
+
+.pgFallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 1100px) {
+  .pgLeft,
+  .pgRight {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pgLink,
+  .pgGhost,
+  .pgChip {
+    transition: none;
+  }
+}

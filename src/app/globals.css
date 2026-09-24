@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  /* The sandbox and every plate inside it are a white paper surface. This is
+     not a preference that follows the OS: the pieces are lit and composited
+     against white, and a dark ground turns each card frame black behind them. */
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 }
@@ -22,13 +26,6 @@
     sans-serif;
   /* labels and data */
   --font-mono: var(--font-ibm-mono), "IBM Plex Mono", ui-monospace, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

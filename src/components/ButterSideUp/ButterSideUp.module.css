@@ -1,0 +1,170 @@
+/* Gallery chrome: the plate inset in a white card, tools underneath. */
+.root {
+  --focus: #9a4c19;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 18px;
+  background: #ffffff;
+  font-family: var(--font-sans);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  cursor: none;
+  touch-action: none;
+  outline: none;
+}
+
+.stage:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus);
+}
+
+/* the three sources never paint to screen, they are only texture uploads */
+.source {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  visibility: hidden;
+}
+
+.gl,
+.over {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.over {
+  pointer-events: none;
+}
+
+/* if webgl is missing the flat pigment canvas is all there is, so show it */
+.source[data-fallback="true"] {
+  visibility: visible;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding: 18px 2px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #9a4c19;
+}
+
+.pigments {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.22);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.swatch:hover {
+  transform: translateY(-2px);
+}
+
+.swatch[data-on="true"] {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px #9a4c19;
+}
+
+.swatch:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: #9a4c19;
+  background: transparent;
+  border: 1px solid rgba(154, 76, 25, 0.32);
+  border-radius: 999px;
+  padding: 6px 13px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.btn:hover {
+  background: rgba(201, 120, 54, 0.12);
+}
+
+.btn[data-on="true"] {
+  background: #9a4c19;
+  color: #fff5ef;
+  border-color: #9a4c19;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 2px 2px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1.2;
+  color: #1f2937;
+}
+
+.hint {
+  font-size: 13px;
+  line-height: 1.2;
+  color: #b0b4bb;
+}
+
+.root[data-variant="embed"] {
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.root[data-variant="embed"] .hud {
+  font-size: 10px;
+  padding-top: 12px;
+}
+
+.root[data-variant="embed"] .title,
+.root[data-variant="embed"] .hint {
+  font-size: 12px;
+}

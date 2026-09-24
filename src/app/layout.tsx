@@ -45,6 +45,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      /* data-theme is set on <html> by an inline script before React runs, so the
+         server markup never matches it. That attribute is the one React should
+         not try to reconcile. */
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${ibmPlexMono.variable} ${plusJakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

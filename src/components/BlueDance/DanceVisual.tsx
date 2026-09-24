@@ -29,8 +29,11 @@ const label: CSSProperties = {
 
 export default function DanceVisual({
   palette = "cool",
+  bare = false,
 }: {
   palette?: "cool" | "thermal";
+  /** hide the wheel and captions, leaving only the cursor field */
+  bare?: boolean;
 }) {
   return (
     <main
@@ -46,36 +49,40 @@ export default function DanceVisual({
       {/* cursor-reactive dye field, full bleed behind everything */}
       <FluidField palette={palette} />
 
-      {/* draggable spinning wheel, transparent so the field shows around it */}
-      <div
-        className={styles.dropIn}
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div style={{ width: "min(68vmin, 680px)", height: "min(68vmin, 680px)" }}>
-          <BlueDance
-            variant="embed"
-            mode="flat"
-            transparent
-            interactive
-            scale={0.92}
-          />
-        </div>
-      </div>
+      {!bare && (
+        <>
+          {/* draggable spinning wheel, transparent so the field shows around it */}
+          <div
+            className={styles.dropIn}
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div style={{ width: "min(68vmin, 680px)", height: "min(68vmin, 680px)" }}>
+              <BlueDance
+                variant="embed"
+                mode="flat"
+                transparent
+                interactive
+                scale={0.92}
+              />
+            </div>
+          </div>
 
-      <span style={{ ...label, top: "8%", left: "8%" }}>I think</span>
-      <span
-        style={{ ...label, top: "50%", right: "4%", transform: "translateY(-50%)" }}
-      >
-        we should all
-      </span>
-      <span style={{ ...label, bottom: "8%", left: "6%" }}>go dancing.</span>
+          <span style={{ ...label, top: "8%", left: "8%" }}>I think</span>
+          <span
+            style={{ ...label, top: "50%", right: "4%", transform: "translateY(-50%)" }}
+          >
+            we should all
+          </span>
+          <span style={{ ...label, bottom: "8%", left: "6%" }}>go dancing.</span>
+        </>
+      )}
     </main>
   );
 }

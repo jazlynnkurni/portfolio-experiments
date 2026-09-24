@@ -3,11 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { Inter } from "next/font/google";
 import styles from "./MonetRipple.module.css";
-
-const inter = Inter({ subsets: ["latin"], weight: ["600"] });
-const CAPTION = "*luh calm scenery*";
 
 type MonetRippleProps = {
   variant?: "full" | "embed";
@@ -498,7 +494,6 @@ export default function MonetRipple({ variant = "full" }: MonetRippleProps) {
       >
         <Painting reducedRef={reducedRef} targetPan={targetPan} />
       </Canvas>
-      <div className={`${styles.caption} ${inter.className}`}>{CAPTION}</div>
     </div>
   );
 }

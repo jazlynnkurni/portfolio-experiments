@@ -1,0 +1,84 @@
+/* ============================================================================
+ * THE REVAMP'S CHROME, for the sandbox.
+ *
+ * The sandbox is a separate Next build on its own port, so it cannot share the
+ * revamp's stylesheet by reference. This is that chassis carried over: the
+ * tokens, the two modes, the nav pill, the footer rail, the cursor, the nav
+ * drop, the mode change. Same numbers as revamp-proto/build.py, so the page
+ * reads as one site with the others and not as a tool bolted onto it.
+ * ========================================================================= */
+:root{--jak:var(--font-jakarta),"Plus Jakarta Sans",sans-serif;--hel:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --gold:#A99939;--oxblood:#340414;--charcoal:#1C1A17}
+:root,[data-theme="light"]{--paper:#FAF9F7;--ink:#14171B;--ink2:rgba(20,23,27,.66);--ink3:rgba(20,23,27,.42);
+  --hair:rgba(20,23,27,.16);--touch:#340414;--flick-a:#A99939;--flick-b:#340414;--plate:#FAF9F7;
+  --outline:oklch(0 0 0 / 0.1);--pill:#fff;--pill-shadow:0 1px 2px rgba(20,23,27,.04),0 6px 20px rgba(20,23,27,.07);color-scheme:light}
+[data-theme="dark"]{--paper:#1C1A17;--ink:#FAF9F7;--ink2:rgba(250,249,247,.66);--ink3:rgba(250,249,247,.42);
+  --hair:rgba(250,249,247,.16);--touch:#A99939;--flick-a:#A99939;--flick-b:#FAF9F7;--plate:#262320;
+  --outline:oklch(1 0 0 / 0.1);--pill:#262320;--pill-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);color-scheme:dark}
+
+html,body{background:var(--paper)}
+.rv{color:var(--ink);font-family:var(--hel);font-weight:300;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.rv h1,.rv h2,.rv h3{font-family:var(--jak);font-weight:500;letter-spacing:-.012em;text-wrap:balance;margin:0}
+.rv p{text-wrap:pretty;margin:0}
+.rv a{color:inherit}
+.rv .wrap{max-width:1180px;margin:0 auto;padding:0 30px}
+.rv .label{font-family:var(--jak);font-weight:600;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3)}
+
+/* nav: the pill, verbatim */
+.rv nav{position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none}
+.rv nav .in{display:flex;justify-content:space-between;align-items:center;padding-top:24px}
+.rv nav .mark{pointer-events:auto;font-family:var(--jak);font-weight:600;font-size:13px;letter-spacing:-.01em;padding:10px 0;text-decoration:none;color:var(--ink)}
+.rv .mark{display:inline-block;line-height:0}
+.rv .mark .jk{position:relative;display:inline-grid;place-items:center;width:1em;height:1em;font-size:clamp(24px,2.6vw,34px);background:#f4efe3;--r:7%;
+  -webkit-mask:radial-gradient(circle at 0 0,transparent var(--r),#000 calc(var(--r) + .5px)) 0 0/16.66% 16.66% repeat;
+  mask:radial-gradient(circle at 0 0,transparent var(--r),#000 calc(var(--r) + .5px)) 0 0/16.66% 16.66% repeat}
+.rv .mark .jk i{position:absolute;inset:14%;border:1px solid #340414;opacity:.85}
+.rv .mark .jk b{position:relative;font:700 .42em/1 var(--jak);letter-spacing:-.06em;color:#340414}
+.rv nav .links{pointer-events:auto;display:flex;align-items:center;gap:8px;background:var(--pill);border-radius:999px;
+  padding:4px 12px 4px 8px;box-shadow:var(--pill-shadow);position:relative;isolation:isolate}
+[data-theme="dark"] .rv nav .links{outline:1px solid var(--outline);outline-offset:-1px}
+.rv nav a.l{font-family:var(--hel);font-weight:400;font-size:14.5px;color:var(--ink);text-decoration:none;
+  padding:10px 16px;border-radius:999px;position:relative;z-index:1}
+.rv nav a.l[aria-current="page"]{color:var(--ink)}
+.rv #theme{width:38px;height:38px;border-radius:50%;border:0;background:transparent;color:var(--ink2);cursor:pointer;padding:0;
+  display:grid;place-items:center;position:relative;z-index:1;transition:color .18s ease}
+.rv #theme:hover{color:var(--ink)}
+.rv #theme:active{transform:scale(.96)}
+.rv #theme svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+  transition:transform .5s cubic-bezier(.22,1,.36,1),opacity .3s ease}
+[data-theme="dark"] .rv #theme .sun{display:none}
+:root:not([data-theme="dark"]) .rv #theme .moon{display:none}
+html.theming .rv #theme svg{transform:rotate(90deg) scale(.6);opacity:0}
+@media(max-width:640px){.rv nav .in{padding-top:16px} .rv nav a.l{padding:9px 10px;font-size:12.5px}}
+/* the drop of ink under the glass */
+.rv nav .links .drop{position:absolute;top:4px;bottom:4px;left:0;width:0;border-radius:999px;pointer-events:none;z-index:0;
+  background:color-mix(in srgb,var(--ink) 8%,transparent);opacity:0;will-change:transform,width;
+  transition:transform .46s cubic-bezier(.33,1.18,.37,1),width .46s cubic-bezier(.33,1.18,.37,1),opacity .46s cubic-bezier(.33,1.18,.37,1)}
+.rv nav .links .drop.out{transition-timing-function:cubic-bezier(.22,1,.36,1)}
+.rv nav .links .drop.on{opacity:1}
+
+/* footer rail */
+.rv footer{padding:64px 0 46px}
+.rv footer .rule{height:1px;background:var(--hair);margin-bottom:26px}
+.rv footer .in{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.rv footer a{color:var(--ink2);text-decoration:none;font-size:12.5px;transition:color .18s ease}
+.rv footer a:hover{color:var(--touch)}
+.rv footer .t{font-size:12.5px;color:var(--ink3)}
+.rv footer .t b{font-weight:400;color:var(--ink2);font-variant-numeric:tabular-nums}
+
+/* the cursor: his dot, in our ink */
+@media(pointer:fine){
+  .rv,.rv a,.rv button{cursor:none}
+  #cur{position:fixed;left:0;top:0;width:12px;height:12px;pointer-events:none;z-index:1000;
+    transform:translate(-100px,-100px);will-change:transform;opacity:0;transition:opacity .2s ease}
+  #cur i{position:absolute;inset:0;border-radius:50%;background:var(--charcoal);box-shadow:0 3px 14px rgba(28,26,23,.30);
+    transform:scale(1);transition:transform .46s cubic-bezier(.33,1.18,.37,1),opacity .32s ease,box-shadow .32s ease}
+  [data-theme="dark"] #cur i{background:var(--ink);box-shadow:0 3px 14px rgba(250,249,247,.26)}
+  #cur.on{opacity:1}
+  #cur.hot i{transform:scale(2.6);opacity:.62;box-shadow:0 6px 22px rgba(28,26,23,.22)}
+  #cur.down i{transform:scale(2.1);opacity:.75}
+  #cur.text,#cur.off{opacity:0}
+}
+/* the mode change: every colour eases to the other one */
+html.theming,html.theming *{transition:background-color .5s ease,color .5s ease,border-color .5s ease,outline-color .5s ease,box-shadow .5s ease,fill .5s ease,stroke .5s ease!important}
+@media(prefers-reduced-motion:reduce){html.theming,html.theming *{transition:none!important}}

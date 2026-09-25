@@ -75,7 +75,11 @@ export function Nav() {
 
   return (
     <nav><div className="wrap in">
-      <a className="mark" href={HOME + "/"} data-href={HOME + "/"} onClick={carry} aria-label="Home, JK"><span className="jk"><i /><b>JK</b></span></a>
+      <span className="markwrap"><a className="mark" href={HOME + "/"} data-href={HOME + "/"} onClick={carry} aria-label="Home, Jazlynn">
+        <img className="sm-ink" src={HOME + "/jaz-signature.svg?v=sig1"} alt="" aria-hidden="true" draggable={false} />
+        <img className="sm-paper" src={HOME + "/jaz-signature-paper.svg?v=sig1"} alt="" aria-hidden="true" draggable={false} />
+      </a>
+      <p className="sm-blurb"><b>Design engineer who creates charming products.</b><span>Founding DesignEng @ Eden.</span><span>Prev @ Manus AI.</span><span>HCI @ Columbia University {"\u2019"}27.</span></p></span>
       <span className="links">
         <button id="theme" aria-label="Switch colour mode" title="Colour mode" onClick={toggle}>
           <svg className="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>

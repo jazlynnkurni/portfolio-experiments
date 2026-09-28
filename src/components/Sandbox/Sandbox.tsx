@@ -48,16 +48,16 @@ const FRAME_H = 800;
 /** how many plates may be rendering at once. Four covers the one you are
  *  reading plus its neighbours in both directions, which is every plate you
  *  can actually see mid-scroll. */
-const LIVE_BUDGET = 4;
+const LIVE_BUDGET = 8;
 
 /** how many more get their route fetched, ahead of the scroll, without
  *  rendering. Cheap: one HTML response each, no GPU. */
-const WARM_AHEAD = 4;
+const WARM_AHEAD = 12;
 
 /** how long the scroll must rest before the budget is recomputed. Debounced,
  *  not throttled: during a fling you are not reading anything, and booting
  *  every plate you fly past is exactly the churn this budget exists to stop. */
-const SETTLE_MS = 120;
+const SETTLE_MS = 40;
 
 type CardProps = {
   entry: ExperimentEntry;

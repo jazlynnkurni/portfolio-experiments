@@ -1,32 +1,29 @@
-// S, O, F, T, as metaballs.
+// S, O, F, T, as circles.
 //
 // The reference is type: four letterforms built from metaballs, each held still
 // and poured into the next. Differencing the silhouette frame to frame gives
 // four clean minima 24 frames apart at 40ms, so the beat is 0.96s and the word
 // is SOFT.
 //
-// HOW THE BALLS WERE FOUND, which took three wrong goes.
+// Recovered, not drawn. Each held frame is blurred wider than its 4 pixel
+// dither, thresholded, then covered greedily: take the point furthest from the
+// background, put a circle there, erase the whole circle, repeat.
 //
-// The first attempts covered the silhouette with discs: take the point furthest
-// from the background, drop a circle on it, erase, repeat. That is a reasonable
-// way to approximate a SHAPE and a bad way to recover a CONSTRUCTION. It
-// produced twenty six discs of wildly mixed sizes, and rendered back through a
-// metaball field they came out as a lumpy mass rather than as a letter, because
-// the reference is not twenty six discs. Enlarged and de-dithered it is plainly
-// about eight, all roughly the same size, strung along the letter's spine.
+// Two things had to be right and neither was obvious.
 //
-// The read that works comes out of the lighting. The piece is RIM LIT: a lobe
-// is bright around its edge and darkest through its middle, where the surface
-// faces the camera. So every ball's centre is a local dark spot, and finding
-// the dark spots inside the letter is a direct read of where the balls were
-// put. The radius is then the distance from that centre to the nearest edge.
+// Erase the WHOLE disc. Erasing part of it leaves the rim of the last one as
+// the tallest thing around, so the next pick lands beside it and the budget
+// goes on one fat lobe while the thin strokes get nothing.
 //
-// Counts come out uneven, 8, 9, 8 and 7, so each letter is padded to nine with
-// nothing-balls parked at its centre of mass. Those grow in and shrink away
-// across a morph, which is how a letter with fewer lobes gets to one with more.
+// And threshold at 65, not higher. The reference is RIM LIT: its lobes are
+// bright at the edge and about 107 through the middle. Cutting at 95 slices
+// through the letter's own interior and the mask comes back full of holes.
+// The histogram of a blurred frame settles it: the plate ground peaks at 40,
+// the letter runs from 60 up, and the valley between them is 65.
 //
 // Coordinates are in plate space: x from 0 to 1, y from 0 to 1.4, the sqrt(2)
-// proportion the reference's plate measured.
+// proportion the reference's plate measured. The loose discs low on each panel
+// are not noise, the reference has them too.
 
 export const PLATE_ASPECT = 1.4;
 
@@ -35,27 +32,51 @@ export type Disc = [number, number, number];
 export const LETTERS: Disc[][] = [
   // S
   [
-    [0.523, 0.754, 0.170], [0.785, 0.385, 0.129], [0.523, 0.185, 0.150],
-    [0.185, 0.446, 0.141], [0.323, 0.500, 0.170], [0.277, 0.346, 0.163],
-    [0.208, 0.915, 0.091], [0.762, 0.723, 0.079], [0.448, 0.532, 0.000],
+    [0.297, 0.431, 0.229], [0.513, 0.246, 0.188], [0.503, 0.713, 0.177],
+    [0.764, 0.354, 0.150], [0.677, 0.764, 0.136], [0.205, 0.938, 0.099],
+    [0.538, 0.887, 0.091], [0.533, 0.990, 0.091], [0.364, 1.046, 0.080],
+    [0.344, 1.123, 0.080], [0.810, 0.795, 0.075], [0.651, 1.123, 0.074],
+    [0.595, 1.056, 0.074], [0.292, 0.985, 0.064], [0.441, 1.026, 0.062],
+    [0.123, 0.995, 0.061], [0.877, 0.841, 0.054], [0.903, 0.892, 0.052],
+    [0.451, 1.267, 0.051], [0.164, 1.133, 0.050], [0.379, 1.195, 0.050],
+    [0.108, 1.072, 0.050], [0.908, 0.959, 0.049], [0.262, 1.144, 0.049],
+    [0.728, 1.123, 0.048], [0.887, 1.021, 0.047],
   ],
   // O
   [
-    [0.762, 0.854, 0.040], [0.815, 0.646, 0.144], [0.208, 0.885, 0.159],
-    [0.338, 0.915, 0.170], [0.700, 0.392, 0.170], [0.277, 0.562, 0.170],
-    [0.708, 0.238, 0.146], [0.569, 0.338, 0.170], [0.300, 0.300, 0.121],
+    [0.656, 0.313, 0.221], [0.277, 0.862, 0.219], [0.251, 0.579, 0.188],
+    [0.774, 0.682, 0.187], [0.369, 0.323, 0.177], [0.410, 1.036, 0.086],
+    [0.677, 0.846, 0.080], [0.538, 1.185, 0.079], [0.308, 1.082, 0.079],
+    [0.785, 0.492, 0.073], [0.718, 1.041, 0.065], [0.651, 0.533, 0.063],
+    [0.656, 0.933, 0.063], [0.303, 1.159, 0.055], [0.892, 0.831, 0.054],
+    [0.410, 1.287, 0.054], [0.308, 1.221, 0.052], [0.805, 1.031, 0.051],
+    [0.354, 1.277, 0.050], [0.908, 0.903, 0.049], [0.697, 1.103, 0.049],
+    [0.477, 1.097, 0.048], [0.472, 1.267, 0.048], [0.903, 0.954, 0.046],
+    [0.672, 0.995, 0.044], [0.856, 1.010, 0.043],
   ],
   // F
   [
-    [0.592, 0.792, 0.116], [0.777, 0.362, 0.129], [0.277, 0.946, 0.128],
-    [0.285, 0.762, 0.116], [0.338, 0.238, 0.157], [0.238, 0.500, 0.103],
-    [0.577, 0.269, 0.110], [0.731, 0.162, 0.079], [0.477, 0.504, 0.000],
+    [0.328, 0.277, 0.181], [0.718, 0.272, 0.144], [0.605, 0.764, 0.136],
+    [0.287, 0.959, 0.129], [0.292, 0.779, 0.116], [0.262, 0.456, 0.108],
+    [0.564, 0.272, 0.105], [0.800, 0.390, 0.099], [0.862, 0.313, 0.062],
+    [0.256, 0.564, 0.058], [0.256, 1.256, 0.058], [0.313, 1.262, 0.054],
+    [0.369, 1.072, 0.053], [0.390, 1.190, 0.053], [0.205, 1.067, 0.052],
+    [0.185, 1.190, 0.052], [0.390, 1.123, 0.050], [0.185, 1.118, 0.049],
+    [0.364, 1.236, 0.048], [0.267, 0.667, 0.047], [0.728, 0.128, 0.041],
+    [0.200, 1.241, 0.038], [0.703, 0.415, 0.037], [0.190, 0.538, 0.037],
+    [0.262, 0.621, 0.037], [0.897, 0.364, 0.035],
   ],
   // T
   [
-    [0.354, 1.100, 0.050], [0.531, 0.577, 0.145], [0.831, 0.231, 0.126],
-    [0.200, 0.262, 0.130], [0.592, 0.262, 0.144], [0.423, 0.269, 0.141],
-    [0.585, 0.723, 0.117], [0.502, 0.489, 0.000], [0.502, 0.489, 0.000],
+    [0.246, 0.282, 0.162], [0.549, 0.292, 0.157], [0.795, 0.251, 0.144],
+    [0.544, 0.585, 0.144], [0.569, 0.728, 0.123], [0.400, 0.231, 0.089],
+    [0.554, 1.056, 0.071], [0.400, 0.344, 0.067], [0.369, 1.103, 0.065],
+    [0.503, 0.446, 0.062], [0.585, 0.446, 0.062], [0.446, 0.887, 0.062],
+    [0.456, 0.985, 0.059], [0.631, 0.836, 0.058], [0.667, 0.185, 0.053],
+    [0.472, 0.821, 0.053], [0.651, 0.897, 0.052], [0.641, 0.949, 0.050],
+    [0.605, 1.000, 0.047], [0.533, 1.123, 0.047], [0.590, 1.123, 0.047],
+    [0.477, 1.154, 0.045], [0.692, 0.359, 0.038], [0.421, 1.036, 0.036],
+    [0.436, 1.138, 0.034], [0.626, 1.154, 0.034],
   ],
 ];
 

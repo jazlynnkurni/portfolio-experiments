@@ -9,8 +9,8 @@ type Control = { key: keyof BlobParams; label: string; min: number; max: number;
 
 const CONTROLS: Control[] = [
   // the shape
-  { key: "radius", label: "ball size", min: 0.4, max: 3.2, step: 0.01 },
-  { key: "sharp", label: "separation", min: 1, max: 14, step: 0.25 },
+  { key: "radius", label: "disc size", min: 0.3, max: 1.6, step: 0.01 },
+  { key: "reach", label: "reach", min: 1.2, max: 4, step: 0.05 },
   { key: "thresh", label: "threshold", min: 0.1, max: 1.5, step: 0.02 },
   // the light
   { key: "rim", label: "edge width", min: 0.004, max: 0.12, step: 0.002 },

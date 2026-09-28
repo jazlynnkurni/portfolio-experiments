@@ -5,7 +5,7 @@ export type BlobParams = {
   radius: number;
   knit: number;
   rim: number;
-  sharp: number;
+  reach: number;
   thresh: number;
   gain: number;
   fillIn: number;
@@ -19,20 +19,9 @@ export type BlobParams = {
 
 export const DEFAULT_PARAMS: BlobParams = {
   // where Jaz left the sliders
-  // The stored radii are TRUE ball radii, read off the reference, not a
-  // silhouette cover. The kernel's support is fixed at 2.2 of the source, so
-  // this is the only thing that sets overall size.
-  radius: 1.12,
-  sharp: 3.0,
-  // Solved, not guessed. A lone ball's surface sits at R * sqrt(1 - thresh^(1/sharp))
-  // where R is its support. For the surface to land on the ball's real radius
-  // while its support stays local enough that only NEIGHBOURS merge, the
-  // threshold has to be low: at radius 0.71 the support is 0.22 of the plate
-  // and 0.21 puts the surface at 0.139, which is the measured ball radius.
-  // The old 0.76 was tuned against the previous disc-cover data and puts the
-  // surface at less than a third of the support, which is why every letter
-  // came out as one swollen mass.
-  thresh: 0.21,
+  radius: 0.84,
+  reach: 2.35,
+  thresh: 0.76,
   rim: 0.03,
   gain: 0.68,
   fillIn: 0.33,
@@ -311,7 +300,7 @@ export function startBlobs(cvs: HTMLCanvasElement, opts: Options = {}): BlobsHan
     gl.uniform4fv(u("uBalls"), data);
     gl.uniform1i(u("uCount"), n);
     gl.uniform1f(u("uRim"), P.rim);
-    gl.uniform1f(u("uSharp"), P.sharp);
+    gl.uniform1f(u("uReach"), P.reach);
     gl.uniform1f(u("uThresh"), P.thresh);
     gl.uniform1f(u("uGain"), P.gain);
     gl.uniform1f(u("uFillIn"), P.fillIn);

@@ -16,14 +16,15 @@
   gap: 24px;
 }
 
-.title {
+.head h1.title {
+  text-wrap: unset;
   font-size: clamp(28px, 4vw, 44px);
   line-height: 1.12;
   max-width: 22ch;
   margin-top: 12px;
 }
 
-.lede {
+.head p.lede {
   font-size: 17px;
   line-height: 1.62;
   color: var(--ink2);

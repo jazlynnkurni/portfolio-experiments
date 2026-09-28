@@ -44,7 +44,7 @@ uniform float uAspect;      // plate height over width
 uniform vec4  uBalls[${MAX_BALLS}];   // xy centre, z radius, w strength
 uniform int   uCount;
 uniform float uRim;
-uniform float uSharp;
+uniform float uReach;
 uniform float uThresh;
 uniform float uGain;
 uniform float uFillIn;
@@ -76,22 +76,19 @@ void fieldAndGrad(vec2 p, out float f, out vec2 g){
     // reference keeps its lobes plainly distinct with deep notches between
     // them, which only happens if a ball stops having any influence at all
     // past a certain distance. This one dies exactly at R.
-    // Wyvill's kernel with an adjustable power, and COMPACT support.
+    // Wyvill's kernel, with COMPACT support, not 1/d².
     //
-    // The inverse square kernel is the textbook metaball and it is wrong here:
-    // it never reaches zero, so every lobe pulls on every other one across the
-    // whole plate and the counters of the letters fill in. This one dies at R.
-    //
-    // The exponent is the knob that actually decides whether lobes stay
-    // separate. Support radius and ball size are NOT two knobs: R is the
-    // product of them, so scaling one and dividing the other leaves the field
-    // identical, which is what made two of these sliders do the same thing.
-    // Concentrating the kernel is independent of how big it is.
-    float R = b.z * 2.2;
+    // The inverse square kernel is the textbook metaball and it is wrong for
+    // this: it never reaches zero, so every lobe pulls on every other lobe
+    // across the whole plate and the counters of the letters fill in. The
+    // reference keeps its lobes plainly distinct with deep notches between
+    // them, which only happens if a ball stops having any influence at all
+    // past a certain distance. This one dies exactly at R.
+    float R = b.z * uReach;
     float q = clamp(1.0 - r2 / (R * R), 0.0, 1.0);
-    float qn = pow(q, uSharp);
-    f += b.w * qn;
-    g += b.w * uSharp * pow(q, uSharp - 1.0) * (-2.0 * d / (R * R));
+    float q2 = q * q;
+    f += b.w * q2 * q;
+    g += b.w * 3.0 * q2 * (-2.0 * d / (R * R));
   }
 }
 

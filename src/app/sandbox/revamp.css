@@ -22,7 +22,7 @@ html,body{background:var(--paper)}
 .rv p{text-wrap:pretty;margin:0}
 .rv a{color:inherit}
 .rv .wrap{max-width:1180px;margin:0 auto;padding:0 30px}
-.rv .label{font-family:var(--jak);font-weight:600;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3)}
+.rv .label{font-family:var(--jak);font-weight:600;font-size:10.5px;line-height:1.5;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3)}
 
 /* nav: the pill, verbatim */
 .rv nav{position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none}

@@ -138,4 +138,12 @@ export const EXPERIMENTS: ExperimentEntry[] = [
     interactions: ["move to make a draft", "switch the bulb"],
     weight: "light",
   },
+  {
+    slug: "soft",
+    title: "Soft",
+    blurb:
+      "The word SOFT set in metaballs. Each letter is a held cluster of discs recovered from a type reference frame by frame, poured into the next on a 0.96s beat and printed through a dither on a fixed plate. Drag across it and your own discs melt into the word.",
+    interactions: ["drag to pour", "sliders"],
+    weight: "heavy",
+  },
 ];

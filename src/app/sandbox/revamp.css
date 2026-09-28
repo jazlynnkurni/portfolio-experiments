@@ -26,7 +26,11 @@ html,body{background:var(--paper)}
 
 /* nav: the pill, verbatim */
 .rv nav{position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none}
-.rv nav .in{display:flex;justify-content:space-between;align-items:center;padding-top:24px}
+.rv nav .in{display:flex;justify-content:space-between;align-items:center;padding-top:24px;position:relative}
+/* the nav's ground: a band of paper fading out below the mark, so headlines dim into it instead of crashing */
+.rv nav::before{content:"";position:absolute;left:0;right:0;top:0;height:104px;pointer-events:none;
+  background:linear-gradient(var(--paper) 46%,color-mix(in srgb,var(--paper) 70%,transparent) 72%,transparent);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask:linear-gradient(#000 50%,transparent);mask:linear-gradient(#000 50%,transparent)}
 .rv nav .mark{pointer-events:auto;font-family:var(--jak);font-weight:600;font-size:13px;letter-spacing:-.01em;padding:10px 0;text-decoration:none;color:var(--ink)}
 .rv .mark{display:inline-block;line-height:0}
 .rv .markwrap{position:relative;display:inline-block;pointer-events:auto}
@@ -38,6 +42,7 @@ html,body{background:var(--paper)}
 .rv .sm-blurb b,.rv .sm-blurb span{display:block}
 .rv .sm-blurb span{margin-top:3px}
 .rv .sm-blurb b{font-weight:400;color:var(--ink);margin-bottom:6px}
+.rv .sm-blurb b span{display:inline;margin:0}
 .rv .mark .sm-paper{display:none}
 [data-theme="dark"] .rv .mark .sm-ink{display:none}
 [data-theme="dark"] .rv .mark .sm-paper{display:block}
@@ -75,7 +80,7 @@ html.theming .rv #theme svg{transform:rotate(90deg) scale(.6);opacity:0}
 
 /* the cursor: his dot, in our ink */
 @media(pointer:fine){
-  .rv,.rv a,.rv button{cursor:none}
+  .rv,.rv *,.rv *::before,.rv *::after{cursor:none!important}
   #cur{position:fixed;left:0;top:0;width:12px;height:12px;pointer-events:none;z-index:1000;
     transform:translate(-100px,-100px);will-change:transform;opacity:0;transition:opacity .2s ease}
   #cur i{position:absolute;inset:0;border-radius:50%;background:var(--charcoal);box-shadow:0 3px 14px rgba(28,26,23,.30);

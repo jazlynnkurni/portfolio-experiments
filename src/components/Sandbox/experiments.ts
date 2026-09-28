@@ -39,6 +39,22 @@ export const EXPERIMENTS: ExperimentEntry[] = [
     weight: "heavy",
   },
   {
+    slug: "soft",
+    title: "Soft",
+    blurb:
+      "The word SOFT set in metaballs. Each letter is a held cluster of discs recovered from a type reference frame by frame, poured into the next on a 0.96s beat and printed through a dither on a fixed plate. Drag across it and your own discs melt into the word.",
+    interactions: ["drag to pour", "sliders"],
+    weight: "heavy",
+  },
+  {
+    slug: "mahjong",
+    title: "Mahjong run",
+    blurb:
+      "The footer from the old site. Nine tiles stand on a floor as matter.js bodies driving the DOM. Click one and the line goes down like dominoes, each tile caught mid-fall by the next so the row settles into a leaning fan; wait, and they stand back up right to left.",
+    interactions: ["click a tile", "wait for the stand-up"],
+    weight: "light",
+  },
+  {
     slug: "track-record",
     title: "Track record",
     blurb:
@@ -137,13 +153,5 @@ export const EXPERIMENTS: ExperimentEntry[] = [
       "The night register. Crushed velvet with a bulb inside it, shaded cell by cell off distance to the filament and two octaves of pile noise, so density inverts: bright core, dark ribs, glow at the turning rim. Every strand of fringe is a matter pendulum, the pointer is a draft, and the moth is the one thing nobody designed.",
     interactions: ["move to make a draft", "switch the bulb"],
     weight: "light",
-  },
-  {
-    slug: "soft",
-    title: "Soft",
-    blurb:
-      "The word SOFT set in metaballs. Each letter is a held cluster of discs recovered from a type reference frame by frame, poured into the next on a 0.96s beat and printed through a dither on a fixed plate. Drag across it and your own discs melt into the word.",
-    interactions: ["drag to pour", "sliders"],
-    weight: "heavy",
   },
 ];

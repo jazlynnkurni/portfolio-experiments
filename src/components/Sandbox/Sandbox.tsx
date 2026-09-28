@@ -118,6 +118,7 @@ function ExperimentCard({
     >
       <div
         ref={stageRef}
+        data-plate=""
         className={styles.stage}
         style={{ height: FRAME_H * scale }}
       >

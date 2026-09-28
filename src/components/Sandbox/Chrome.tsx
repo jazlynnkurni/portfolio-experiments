@@ -8,7 +8,7 @@ import { useEffect } from "react";
  * with the same numbers, and the links carry the colour mode across in the
  * URL because localStorage does not cross an origin.
  */
-const HOME = "http://localhost:5330";
+const HOME = process.env.NODE_ENV === "development" ? "http://localhost:5330" : "https://jazlynnwashere.com";
 
 export function themeParam() {
   if (typeof document === "undefined") return "";
@@ -51,13 +51,25 @@ export function Nav() {
         const t = e.target as HTMLElement | null;
         const hot = t && t.closest ? t.closest("a,button,[role=button]") : null;
         c.classList.toggle("hot", !!hot);
-        /* over a live plate the frame owns the pointer, so the bead steps aside */
-        c.classList.toggle("off", !!(t && t.closest && t.closest("iframe,[data-live='true']")));
+        c.classList.toggle("off", !!(t && t.closest && t.closest("[data-plate]")));
         if (!raf) raf = requestAnimationFrame(loop);
       };
       const dn = () => c.classList.add("down"), upf = () => c.classList.remove("down");
+      /* ONE CURSOR. A plate's frame is its own document: once the pointer is inside it the page
+         hears nothing, so the bead would freeze at the frame's edge next to the plate's own
+         cursor. The bead steps aside the moment the pointer enters a plate (pointerenter fires
+         on the wrapper even as the pointer crosses into the iframe) and comes back when it
+         leaves the wrapper, or on the first move the page can see. Focus moving into a frame
+         (a click) hides it too. */
+      const away = () => c.classList.add("off");
+      const back = () => c.classList.remove("off");
+      const plates = () => Array.from(document.querySelectorAll<HTMLElement>("[data-plate]"));
+      const bind = () => plates().forEach((el) => { el.addEventListener("pointerenter", away); el.addEventListener("pointerleave", back); });
+      bind();
+      const mo = new MutationObserver(bind); mo.observe(document.body, { childList: true, subtree: true });
+      addEventListener("blur", away);
       addEventListener("pointermove", move, { passive: true }); addEventListener("pointerdown", dn); addEventListener("pointerup", upf);
-      offCursor.push(() => { removeEventListener("pointermove", move); removeEventListener("pointerdown", dn); removeEventListener("pointerup", upf); });
+      offCursor.push(() => { removeEventListener("pointermove", move); removeEventListener("pointerdown", dn); removeEventListener("pointerup", upf); removeEventListener("blur", away); mo.disconnect(); plates().forEach((el) => { el.removeEventListener("pointerenter", away); el.removeEventListener("pointerleave", back); }); });
     }
     return () => { offs.forEach((f) => f()); pill.removeEventListener("pointerleave", leave); drop.remove(); offCursor.forEach((f) => f()); cur?.remove(); };
   }, []);
@@ -76,10 +88,10 @@ export function Nav() {
   return (
     <nav><div className="wrap in">
       <span className="markwrap"><a className="mark" href={HOME + "/"} data-href={HOME + "/"} onClick={carry} aria-label="Home, Jazlynn">
-        <img className="sm-ink" src={HOME + "/jaz-signature.svg?v=green1"} alt="" aria-hidden="true" draggable={false} />
-        <img className="sm-paper" src={HOME + "/jaz-signature-paper.svg?v=green1"} alt="" aria-hidden="true" draggable={false} />
+        <img className="sm-ink" src={HOME + "/jaz-signature.svg?v=ox1"} alt="" aria-hidden="true" draggable={false} />
+        <img className="sm-paper" src={HOME + "/jaz-signature-paper.svg?v=ox1"} alt="" aria-hidden="true" draggable={false} />
       </a>
-      <p className="sm-blurb"><b>Design engineer who creates charming products.</b><span>Prev @ Manus AI.</span><span>HCI @ Columbia University {"\u2019"}27.</span></p></span>
+      <p className="sm-blurb"><b><span style={{color:"#A99939"}}>Design engineer</span> who creates <span style={{color:"#A99939"}}>charming products</span>.</b><span>Prev @ Manus AI.</span><span>HCI @ Columbia University {"\u2019"}27.</span></p></span>
       <span className="links">
         <button id="theme" aria-label="Switch colour mode" title="Colour mode" onClick={toggle}>
           <svg className="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -103,7 +115,7 @@ export function Footer() {
   return (
     <footer><div className="wrap"><div className="rule" /><div className="in">
       <span className="t">My local time <b id="clock" /></span>
-      <span style={{ display: "flex", gap: 20 }}><a href="mailto:jazkurnz06@gmail.com">Email</a><a href="#">LinkedIn</a><a href="#">X</a></span>
+      <span style={{ display: "flex", gap: 20 }}><a href="mailto:jazkurnz06@gmail.com">Email</a><a href="https://www.linkedin.com/in/jazlynn-kurniandra-a456292a8/" target="_blank" rel="noopener">LinkedIn</a><a href="https://x.com/jazlynnkurni" target="_blank" rel="noopener">X</a></span>
       <span className="t">© 2026 Jazlynn Kurniandra</span>
     </div></div></footer>
   );

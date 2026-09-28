@@ -28,6 +28,7 @@ import * as THREE from "three";
  */
 
 type PoolPostcardProps = {
+  frost?: number;
   variant?: "full" | "embed";
   /** water depth in metres - drives caustic focus, refraction and tint */
   depth?: number;
@@ -314,6 +315,7 @@ function PoolQuad({
       uDepth: { value: depth },
       uChop: { value: chop },
       uTint: { value: tint },
+      uFrost: { value: frost },
       uSun: { value: sun },
       uMouse: { value: new THREE.Vector2(0, 0) },
       uHover: { value: 0 },
@@ -363,6 +365,7 @@ export default function PoolPostcard({
   chop = 1.0,
   tint = 1.0,
   sun = 0.9,
+  frost = 0.6,
   className = "",
 }: PoolPostcardProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -459,6 +462,7 @@ export default function PoolPostcard({
             chop={chop}
             tint={tint}
             sun={sun}
+            frost={frost}
             quality={quality}
             pointer={pointer}
           />

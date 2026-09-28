@@ -1,0 +1,341 @@
+import { VS_QUAD, FS_ORB } from "./shaders";
+
+export type OrbParams = {
+  speed: number;
+  follow: number;
+  wobble: number;
+  wobScale: number;
+  wobSpeed: number;
+  ink: number;
+  edgeInk: number;
+  radius: number;
+  grain: number;
+  through: number;
+  swirl: number;
+};
+
+export const DEFAULT_PARAMS: OrbParams = {
+  speed: 0.34,
+  follow: 0.55,
+  wobble: 0.075,
+  wobScale: 2.1,
+  wobSpeed: 0.22,
+  ink: 1.35,
+  edgeInk: 0.95,
+  radius: 0.92,
+  grain: 0.05,
+  through: 1.05,
+  swirl: 0.9,
+};
+
+export type OrbColors = {
+  orb: string;
+  type: string;
+  page: string;
+};
+
+export const DEFAULT_COLORS: OrbColors = {
+  orb: "#ed6b17",
+  type: "#0f0d0d",
+  page: "#ffffff",
+};
+
+// The shader writes straight out with no tonemap, so these go in as they are
+// rather than being linearised first.
+function hex3(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(v, 16);
+  if (Number.isNaN(n)) return [0, 0, 0];
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+export type OrbHandle = {
+  params: OrbParams;
+  setBlocks: (blocks: string[][]) => void;
+  setColors: (colors: OrbColors) => void;
+  dispose: () => void;
+};
+
+type Options = {
+  params?: OrbParams;
+  blocks?: string[][];
+  colors?: OrbColors;
+  onError?: (message: string) => void;
+};
+
+// The type is laid out on an equirectangular sheet, which is the surface the
+// sphere reads from: x is longitude all the way round, y is pole to pole. Type
+// is kept to a band either side of the equator, because anything near a pole
+// gets wrung out into a spiral as the projection converges.
+function drawText(blocks: string[][]): HTMLCanvasElement {
+  const W = 2048, H = 1024;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d")!;
+
+  g.fillStyle = "#000";
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "#fff";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+
+  const live = blocks.filter((b) => b.some((l) => l.trim().length > 0));
+  if (live.length === 0) return cv;
+
+  // Blocks are spread right round the ball rather than stacked on one face.
+  // That is what fills the rest of the surface: while one block is turned
+  // toward you and readable, the others are near the limb, compressed almost
+  // edge on into the thin arcs and specks that make the thing look alive.
+  // A single block leaves the remaining two thirds of the sphere bare.
+  const faceW = W * 0.42;
+
+  live.forEach((block, bi) => {
+    const lines = block.filter((l) => l.trim().length > 0);
+    const cx = W * ((bi / live.length) + 0.5 / live.length);
+    // nudge each block off the equator so they do not all ride the same line
+    const drift = (bi % 2 === 0 ? -1 : 1) * H * 0.045 * (bi > 1 ? 1 : 0.4);
+    const lineH = H * 0.082;
+    const top = H * 0.5 + drift - ((lines.length - 1) * lineH) / 2;
+
+    lines.forEach((line, i) => {
+      let size = H * 0.072;
+      g.font = `700 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      while (g.measureText(line).width > faceW && size > 12) {
+        size *= 0.94;
+        g.font = `700 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      }
+      // drawn twice, wrapped, so a block sitting on the seam is not cut in half
+      g.fillText(line, cx, top + i * lineH);
+      g.fillText(line, cx > W * 0.5 ? cx - W : cx + W, top + i * lineH);
+    });
+  });
+
+  return cv;
+}
+
+// blank lines separate one block from the next
+export function parseBlocks(text: string): string[][] {
+  return text
+    .split(/\n\s*\n/)
+    .map((b) => b.split("\n").filter((l) => l.trim().length > 0))
+    .filter((b) => b.length > 0);
+}
+
+export function startOrb(cvs: HTMLCanvasElement, opts: Options = {}): OrbHandle {
+  const onError = opts.onError ?? (() => {});
+  const P: OrbParams = opts.params ?? { ...DEFAULT_PARAMS };
+  let C: OrbColors = opts.colors ?? { ...DEFAULT_COLORS };
+
+  const ctx = cvs.getContext("webgl2", { antialias: false, alpha: true, premultipliedAlpha: false });
+  if (!ctx) throw new Error("this needs webgl2, and this browser did not give one up.");
+  const gl = ctx;
+
+  function compile(type: number, src: string, label: string) {
+    const s = gl.createShader(type)!;
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      throw new Error(label + " failed to compile\n" + (gl.getShaderInfoLog(s) ?? ""));
+    }
+    return s;
+  }
+
+  const prog = gl.createProgram()!;
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS_QUAD, "orb vertex"));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS_ORB, "orb fragment"));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    throw new Error("orb failed to link\n" + (gl.getProgramInfoLog(prog) ?? ""));
+  }
+
+  const loc: Record<string, WebGLUniformLocation | null> = {};
+  const u = (n: string) => (loc[n] ??= gl.getUniformLocation(prog, n));
+  const vao = gl.createVertexArray()!;
+
+  const tex = gl.createTexture()!;
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  // wrap in longitude so the type runs round without a seam, clamp pole to pole
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  function upload(blocks: string[][]) {
+    const canvas = drawText(blocks);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+  }
+  upload(opts.blocks ?? [["Yale Photo", "Pop Up", "Lecture Series", "presents"], ["JEFF WALL"], ["Monday", "April 26, 6pm"]]);
+
+  let W = 0, H = 0;
+  function resize() {
+    const cw = Math.max(1, cvs.clientWidth), ch = Math.max(1, cvs.clientHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.round(cw * dpr), h = Math.round(ch * dpr);
+    if (w === W && h === H) return;
+    W = w; H = h; cvs.width = W; cvs.height = H;
+    gl.viewport(0, 0, W, H);
+  }
+  resize();
+  window.addEventListener("resize", resize);
+  let ro: ResizeObserver | null = null;
+  if (window.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(cvs); }
+
+  // ------------------------------------------------------------ the ball
+  // A trackball rather than a turntable. Dragging turns it about an axis lying
+  // in the screen, across the way the hand moved, which is what makes a ball
+  // feel like a ball: push the top and it rolls away, push the side and it
+  // spins. A pair of yaw and pitch angles cannot do that without eventually
+  // locking up, so the state is a frame that gets turned, never two numbers.
+  const R = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+
+  // angular velocity as an axis scaled by its rate: it keeps rolling when let
+  // go, and the cursor feeds into the same thing
+  let wx = 0, wy = 0, wz = 0;
+
+  function turn(ax: number, ay: number, az: number, ang: number) {
+    if (!ang) return;
+    const l = Math.hypot(ax, ay, az) || 1;
+    const x = ax / l, y = ay / l, z = az / l;
+    const c = Math.cos(ang), s = Math.sin(ang), k = 1 - c;
+    const m = [
+      c + x * x * k,     x * y * k - z * s, x * z * k + y * s,
+      y * x * k + z * s, c + y * y * k,     y * z * k - x * s,
+      z * x * k - y * s, z * y * k + x * s, c + z * z * k,
+    ];
+    const o = Array.from(R);
+    // premultiplied, so the turn happens in the viewer's frame not the ball's
+    for (let r = 0; r < 3; r++) {
+      for (let col = 0; col < 3; col++) {
+        R[r * 3 + col] =
+          m[r * 3 + 0] * o[0 * 3 + col] +
+          m[r * 3 + 1] * o[1 * 3 + col] +
+          m[r * 3 + 2] * o[2 * 3 + col];
+      }
+    }
+  }
+
+  let dragging = false, lastX = 0, lastY = 0;
+  let pointerIn = false, ptx = 0, pty = 0;
+
+  const rel = (e: PointerEvent) => {
+    const r = cvs.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / Math.max(1, r.width)) * 2 - 1,
+      y: ((e.clientY - r.top) / Math.max(1, r.height)) * 2 - 1,
+    };
+  };
+
+  const onDown = (e: PointerEvent) => {
+    dragging = true;
+    lastX = e.clientX; lastY = e.clientY;
+    wx = wy = wz = 0;
+    cvs.setPointerCapture(e.pointerId);
+    cvs.style.cursor = "grabbing";
+  };
+  const onMove = (e: PointerEvent) => {
+    const q = rel(e);
+    ptx = q.x; pty = q.y; pointerIn = true;
+    if (!dragging) return;
+    const dx = (e.clientX - lastX) * 0.010;
+    const dy = (e.clientY - lastY) * 0.010;
+    lastX = e.clientX; lastY = e.clientY;
+    turn(dy, dx, 0, Math.hypot(dx, dy));
+    // hand the motion over so it carries on after release
+    wx = dy * 22; wy = dx * 22; wz = 0;
+  };
+  const onUp = (e: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    try { cvs.releasePointerCapture(e.pointerId); } catch { /* gone */ }
+    cvs.style.cursor = "grab";
+  };
+  const onLeave = () => { pointerIn = false; };
+  cvs.addEventListener("pointerdown", onDown);
+  cvs.addEventListener("pointermove", onMove);
+  cvs.addEventListener("pointerup", onUp);
+  cvs.addEventListener("pointercancel", onUp);
+  cvs.addEventListener("pointerleave", onLeave);
+  cvs.style.cursor = "grab";
+
+  let raf = 0, stopped = false, last = performance.now(), t = 0;
+
+  function frame(now: number) {
+    if (stopped) return;
+    let dt = (now - last) / 1000;
+    last = now;
+    if (!(dt > 0) || dt > 0.1) dt = 1 / 60;
+    t += dt;
+
+    if (!dragging) {
+      // left alone it keeps rolling and slowly gives it up, the way something
+      // heavy does, and nothing snaps back upright because a ball has no
+      // upright to snap to
+      turn(wx, wy, wz, Math.hypot(wx, wy, wz) * dt);
+      const damp = Math.exp(-dt * 0.9);
+      wx *= damp; wy *= damp; wz *= damp;
+
+      // the cursor leans on it, so it drifts under the hand rather than
+      // sitting dead
+      if (pointerIn) {
+        const reach = Math.max(0, 1.0 - Math.hypot(ptx, pty));
+        wy += ptx * reach * P.follow * dt * 9.0;
+        wx += pty * reach * P.follow * dt * 9.0;
+      }
+
+      // and a slow turn underneath it all
+      turn(0, 1, 0, P.speed * dt);
+    }
+
+    resize();
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(prog);
+    gl.bindVertexArray(vao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(u("uText"), 0);
+    gl.uniform2f(u("uRes"), W, H);
+    gl.uniform1f(u("uTime"), t);
+    gl.uniformMatrix3fv(u("uRot"), false, R);
+    gl.uniform1f(u("uWobble"), P.wobble);
+    gl.uniform1f(u("uWobScale"), P.wobScale);
+    gl.uniform1f(u("uWobSpeed"), P.wobSpeed);
+    gl.uniform1f(u("uInk"), P.ink);
+    gl.uniform1f(u("uEdgeInk"), P.edgeInk);
+    gl.uniform1f(u("uRadius"), P.radius);
+    gl.uniform1f(u("uGrain"), P.grain);
+    gl.uniform1f(u("uThrough"), P.through);
+    gl.uniform1f(u("uSwirl"), P.swirl);
+    const cp = hex3(C.page), co = hex3(C.orb), ct = hex3(C.type);
+    gl.uniform3f(u("uPaper"), cp[0], cp[1], cp[2]);
+    gl.uniform3f(u("uOrb"), co[0], co[1], co[2]);
+    gl.uniform3f(u("uType"), ct[0], ct[1], ct[2]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    raf = requestAnimationFrame(frame);
+  }
+
+  try { raf = requestAnimationFrame(frame); } catch (e) { onError(String(e)); }
+
+  return {
+    params: P,
+    setBlocks(blocks: string[][]) { upload(blocks); },
+    setColors(colors: OrbColors) { C = colors; },
+    dispose() {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      ro?.disconnect();
+      cvs.removeEventListener("pointerdown", onDown);
+      cvs.removeEventListener("pointermove", onMove);
+      cvs.removeEventListener("pointerup", onUp);
+      cvs.removeEventListener("pointercancel", onUp);
+    },
+  };
+}

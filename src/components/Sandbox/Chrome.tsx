@@ -99,7 +99,6 @@ export function Nav() {
         </button>
         <a className="l" href={HOME + "/#work"} data-href={HOME + "/#work"} onClick={carry}>Projects</a>
         <a className="l" href="/sandbox" aria-current="page">Sandbox</a>
-        <a className="l" href={HOME + "/art-gallery.html"} data-href={HOME + "/art-gallery.html"} onClick={carry}>Art Gallery</a>
         <a className="l" href={HOME + "/about.html"} data-href={HOME + "/about.html"} onClick={carry}>About</a>
       </span>
     </div></nav>

@@ -181,3 +181,152 @@
 .link:hover {
   color: var(--touch);
 }
+
+/* ---- the sheet: an experiment held over the feed ---- */
+.sheetBg {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: color-mix(in srgb, var(--ink) 34%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease;
+}
+.sheetBg[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* floats: stops short of every edge and is rounded on all four corners, so it
+   reads as a card held over the page rather than a drawer pulled up from it */
+.sheet {
+  position: fixed;
+  top: 78px;
+  left: max(24px, 9.5vw);
+  right: max(24px, 9.5vw);
+  bottom: 36px;
+  z-index: 71;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border-radius: 24px;
+  outline: 1px solid var(--outline);
+  outline-offset: -1px;
+  overflow: hidden;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.22);
+  transform: translateY(40px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.3s ease,
+    top 0.46s cubic-bezier(0.2, 0.7, 0.2, 1),
+    left 0.46s cubic-bezier(0.2, 0.7, 0.2, 1),
+    right 0.46s cubic-bezier(0.2, 0.7, 0.2, 1),
+    bottom 0.46s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-radius 0.46s ease;
+}
+.sheet[data-open="true"] {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+/* expanded: the same sheet grown to the window's edges, on the same ease. It
+   stays a sheet over the feed, so close still returns the reader. */
+.sheet[data-full="true"] {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0;
+}
+
+/* the sheet's own bar: the title and the buttons live on it, the piece starts under it */
+.sheetBar {
+  flex: none;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 12px 0 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--hair);
+}
+
+.sheetTitle {
+  font-family: var(--jak);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheetAct {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.sheetAct a,
+.sheetAct button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.sheetAct a:hover,
+.sheetAct button:hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+.sheetAct svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sheetStage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: var(--plate);
+}
+
+.sheetFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: var(--paper);
+}
+
+@media (max-width: 760px) {
+  .sheet {
+    top: 64px;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    border-radius: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheetBg { transition: opacity 0.2s ease; }
+}

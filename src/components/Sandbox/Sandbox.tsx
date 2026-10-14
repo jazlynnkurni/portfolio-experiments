@@ -65,6 +65,7 @@ type CardProps = {
   isLive: boolean;
   onEnter: () => void;
   onLeave: () => void;
+  onOpen: () => void;
   register: (slug: string, node: HTMLElement | null) => void;
 };
 
@@ -74,6 +75,7 @@ function ExperimentCard({
   isLive,
   onEnter,
   onLeave,
+  onOpen,
   register,
 }: CardProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -151,14 +153,9 @@ function ExperimentCard({
       <div className={styles.subcaption}>
         <span className={styles.hint}>{entry.interactions.join(" / ")}</span>
         <span className={styles.links}>
-          <a
-            className={styles.link}
-            href={`/experiments/${entry.slug}`}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <button type="button" className={styles.link} onClick={onOpen}>
             open
-          </a>
+          </button>
           <button type="button" className={styles.link} onClick={reload}>
             reload
           </button>
@@ -168,9 +165,146 @@ function ExperimentCard({
   );
 }
 
+/**
+ * The sheet: an experiment held over the feed at its real size, the same card the
+ * case studies open in on the main site. It floats inset with the feed blurred
+ * behind it, grows to the window's edges on Expand and comes back on Collapse,
+ * and closes on the cross, the backdrop, Escape, or the browser's own back, so
+ * nobody has to leave the page to leave the piece. The URL carries ?p=slug
+ * while it is open, so a sheet can be linked and reloaded.
+ */
+type SheetProps = {
+  entry: ExperimentEntry | null;
+  full: boolean;
+  onFull: (on: boolean) => void;
+  onClose: () => void;
+};
+
+function Sheet({ entry, full, onFull, onClose }: SheetProps) {
+  // the last piece shown stays on the sheet while it fades out, so it never
+  // blinks to blank on its way down (state derived from props, set in render)
+  const [piece, setPiece] = useState<ExperimentEntry | null>(entry);
+  if (entry && entry !== piece) setPiece(entry);
+  const open = !!entry;
+
+  // the page behind must not scroll while the sheet is up
+  useEffect(() => {
+    document.documentElement.classList.toggle("sheet-open", open);
+    return () => document.documentElement.classList.remove("sheet-open");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  }, [open, onClose]);
+
+  // the frame loads the moment a piece is asked for, and is let go a beat after
+  // the sheet has left, so its loop stops too
+  const [src, setSrc] = useState<string | null>(null);
+  const want = entry ? `/experiments/${entry.slug}` : null;
+  if (want && src !== want) setSrc(want);
+  useEffect(() => {
+    if (entry) return;
+    const t = window.setTimeout(() => setSrc(null), 400);
+    return () => window.clearTimeout(t);
+  }, [entry]);
+
+  return (
+    <>
+      <div
+        className={styles.sheetBg}
+        data-open={open}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={styles.sheet}
+        data-open={open}
+        data-full={full}
+        role="dialog"
+        aria-modal="true"
+        aria-label={piece?.title ?? "Experiment"}
+      >
+        <div className={styles.sheetBar}>
+          <span className={styles.sheetTitle}>{piece?.title}</span>
+          <span className={styles.sheetAct}>
+            {piece ? (
+              <a
+                href={`/experiments/${piece.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                title="Open in a new tab"
+                aria-label="Open in a new tab"
+              >
+                <svg viewBox="0 0 16 16"><path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7 9" /></svg>
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onFull(!full)}
+              title={full ? "Collapse" : "Expand"}
+              aria-label={full ? "Collapse" : "Expand"}
+              aria-pressed={full}
+            >
+              {full ? (
+                <svg viewBox="0 0 16 16"><path d="M7 3v4H3M9 13V9h4M3 3l4 4M13 13 9 9" /></svg>
+              ) : (
+                <svg viewBox="0 0 16 16"><path d="M3 6.5V3h3.5M13 9.5V13H9.5M13 3 9 7M3 13l4-4M13 3H9.5M13 3v3.5M3 13h3.5M3 13V9.5" /></svg>
+              )}
+            </button>
+            <button type="button" onClick={onClose} title="Close" aria-label="Close">
+              <svg viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" /></svg>
+            </button>
+          </span>
+        </div>
+        {/* data-plate: the page's cursor bead steps aside once the pointer is in here */}
+        <div className={styles.sheetStage} data-plate="">
+          {src ? (
+            <iframe className={styles.sheetFrame} src={src} title={piece?.title ?? "Experiment"} />
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function Sandbox() {
   const [liveSlug, setLiveSlug] = useState<string | null>(null);
   const clearLive = useCallback(() => setLiveSlug(null), []);
+
+  // the sheet, and the URL that mirrors it
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [full, setFull] = useState(false);
+  const openEntry = useMemo(
+    () => EXPERIMENTS.find((e) => e.slug === openSlug) ?? null,
+    [openSlug],
+  );
+  const openSheet = useCallback((slug: string) => {
+    setOpenSlug(slug);
+    setFull(false);
+    history.pushState({ sheet: slug }, "", `?p=${slug}`);
+  }, []);
+  const closeSheet = useCallback(() => {
+    setOpenSlug((cur) => {
+      if (cur !== null) history.pushState({}, "", location.pathname);
+      return null;
+    });
+    setFull(false);
+  }, []);
+  useEffect(() => {
+    const sync = () => {
+      const p = new URLSearchParams(location.search).get("p");
+      setOpenSlug(p && EXPERIMENTS.some((e) => e.slug === p) ? p : null);
+      setFull(false);
+    };
+    sync();
+    addEventListener("popstate", sync);
+    return () => removeEventListener("popstate", sync);
+  }, []);
 
   // the plates allowed to render right now, nearest the viewport first
   const [budget, setBudget] = useState<string[]>(() =>
@@ -259,12 +393,14 @@ export default function Sandbox() {
             isLive={liveSlug === entry.slug}
             onEnter={() => setLiveSlug(entry.slug)}
             onLeave={clearLive}
+            onOpen={() => openSheet(entry.slug)}
             register={register}
           />
         ))}
       </div>
       </main>
       <Footer />
+      <Sheet entry={openEntry} full={full} onFull={setFull} onClose={closeSheet} />
     </div>
   );
 }

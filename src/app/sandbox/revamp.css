@@ -78,6 +78,8 @@ html.theming .rv #theme svg{transform:rotate(90deg) scale(.6);opacity:0}
 .rv footer .t{font-size:12.5px;color:var(--ink3)}
 .rv footer .t b{font-weight:400;color:var(--ink2);font-variant-numeric:tabular-nums}
 
+/* the feed holds still under an open sheet */
+html.sheet-open{overflow:hidden}
 /* the cursor: his dot, in our ink */
 @media(pointer:fine){
   .rv,.rv *,.rv *::before,.rv *::after{cursor:none!important}

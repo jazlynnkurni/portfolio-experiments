@@ -1,0 +1,183 @@
+/* The Out of Office footer: one frame. The line of men fills it, big, edge
+   to edge, and the footer's content sits on top. No rules, no fades. The
+   engine (public/walk) paints --paper on body when a colourway is picked
+   and toggles [data-dark] on the root for nocturne, so the inks here key
+   off that. */
+
+.footer {
+  --ink: #14171b;
+  --ink2: rgba(20, 23, 27, 0.66);
+  --ink3: rgba(20, 23, 27, 0.42);
+  --jak: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  background: var(--paper, #f3eee4);
+  color: var(--ink);
+  font-family: var(--jak);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+:global([data-dark]) .footer {
+  --ink: #faf9f7;
+  --ink2: rgba(250, 249, 247, 0.66);
+  --ink3: rgba(250, 249, 247, 0.42);
+}
+
+/* the band is the whole footer, behind */
+.band {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.cols,
+.bottom {
+  position: relative;
+  z-index: 1;
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 1fr);
+  gap: 32px;
+  padding: 56px clamp(24px, 6vw, 96px) 0;
+}
+.brand {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.mark {
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.brand p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink2);
+  max-width: 30ch;
+}
+.col h4 {
+  margin: 0 0 14px;
+  font-weight: 600;
+  font-size: 10.5px;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+.col a {
+  display: block;
+  font-size: 13.5px;
+  line-height: 2;
+  color: var(--ink2);
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+.col a:hover {
+  color: var(--ink);
+}
+
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 0 clamp(24px, 6vw, 96px) 28px;
+  font-size: 12.5px;
+  color: var(--ink3);
+}
+.legal {
+  display: flex;
+  gap: 20px;
+}
+.legal a {
+  color: var(--ink3);
+  text-decoration: none;
+}
+.legal a:hover {
+  color: var(--ink);
+}
+.right {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.social {
+  display: flex;
+  gap: 6px;
+}
+.social a {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--ink2);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.social a:hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+.social svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+/* the dots: the only control */
+.dots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.dots button {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  background: transparent;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition: outline-color 0.18s ease, transform 0.18s cubic-bezier(0.33, 1.18, 0.37, 1);
+}
+.dots button:hover {
+  transform: scale(1.12);
+}
+.dots button[aria-pressed="true"] {
+  outline-color: var(--ink);
+}
+.dots button s {
+  flex: 1;
+  display: block;
+}
+
+@media (max-width: 860px) {
+  .cols {
+    grid-template-columns: 1fr 1fr;
+  }
+  .brand {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 480px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .bottom {
+    justify-content: flex-start;
+  }
+}

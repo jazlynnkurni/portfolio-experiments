@@ -154,4 +154,12 @@ export const EXPERIMENTS: ExperimentEntry[] = [
     interactions: ["move to make a draft", "switch the bulb"],
     weight: "light",
   },
+  {
+    slug: "out-of-office",
+    title: "Out of Office",
+    blurb:
+      "A footer for a social app about never being off work. Six of the same man cross it with a briefcase, each trailing his own echo, and nobody slides: hip, knee and ankle follow published gait-lab curves, the planted foot is held still in the world and the body moves by whatever the leg demands. The case is a pendulum on the wrist. Whoever leaves on the right rejoins at the back. Three colourways in the bottom row.",
+    interactions: ["pick a colourway", "watch the edges"],
+    weight: "light",
+  },
 ];

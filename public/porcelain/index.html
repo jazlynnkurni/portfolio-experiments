@@ -1,0 +1,463 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Porcelain</title>
+<style>
+/* The frosted porcelain look, live. Same recipe as the Blender scenes
+   (porcelain.py), rebuilt in three.js so it turns under the hand: a thin
+   transmissive wall with high roughness, warm contents that glow through,
+   three big soft lights, no shadows, cream paper, a little bloom. Drag to
+   turn, scroll to come closer, every number is a slider. */
+:root{--paper:#F6F1E8;--ink:#14171B;--ink2:rgba(20,23,27,.66);--ink3:rgba(20,23,27,.42);--hair:rgba(20,23,27,.14);--touch:#4c5be4}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font:400 13px/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}   /* a canvas does not stretch to inset on its own */
+#stage:active{cursor:grabbing}
+.top{position:fixed;left:24px;top:20px;z-index:5;display:flex;align-items:baseline;gap:10px;pointer-events:none}
+.top a{pointer-events:auto;color:var(--ink2);text-decoration:none}.top a:hover{color:var(--touch)}
+.top .sep{color:var(--ink3)}.top .name{color:var(--ink);font-weight:500}.top .blurb{color:var(--ink3);margin-left:8px;max-width:46ch}
+.dock{position:fixed;left:24px;bottom:20px;z-index:5;display:flex;gap:4px;padding:6px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(20,23,27,.04),0 6px 20px rgba(20,23,27,.08)}
+.dock button{font:inherit;font-size:12.5px;padding:8px 14px;border-radius:999px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.dock button:hover{background:rgba(20,23,27,.05);color:var(--ink)}
+.dock button.on{background:var(--ink);color:#fff}
+.dock.pal{bottom:74px;gap:8px;padding:8px}
+.dock.pal button{width:30px;height:30px;padding:0;border-radius:50%;outline:2px solid transparent;outline-offset:3px;transition:outline-color .18s ease,transform .18s cubic-bezier(.33,1.18,.37,1)}
+.dock.pal button:hover{transform:scale(1.1);background:transparent}
+.dock.pal button.on{outline-color:var(--ink);background:transparent}
+.panel{position:fixed;right:20px;bottom:20px;z-index:5;display:grid;gap:6px;padding:6px;border-radius:999px;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(20,23,27,.04),0 6px 20px rgba(20,23,27,.08)}
+.panel label{display:grid;grid-template-columns:62px 120px 44px;align-items:center;gap:10px;font-size:12px;color:var(--ink2)}
+.panel label b{font-weight:400;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.panel input[type=range]{width:120px;accent-color:var(--ink);margin:0}
+.panel .row{display:flex;gap:4px}
+.panel .row button{font:inherit;font-size:12.5px;padding:8px 14px;border-radius:999px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.panel .row button:hover{background:rgba(20,23,27,.05)}
+.panel .row button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.pane[hidden]{display:none}   /* the class rule would otherwise beat the hidden attribute, and the pane sat open and empty */
+.pane{position:fixed;left:24px;top:64px;z-index:5;width:340px;display:grid;gap:8px;padding:12px;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(20,23,27,.04),0 6px 20px rgba(20,23,27,.08)}
+.pane .parts{display:flex;gap:4px;flex-wrap:wrap}
+.pane .parts button,.pane .row button{font:inherit;font-size:11.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--hair);background:#fff;color:var(--ink);cursor:pointer}
+.pane .parts button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.pane canvas{width:100%;height:auto;display:block;touch-action:none;cursor:crosshair}
+.pane .row{display:flex;gap:6px}
+.pane .msg{font-size:11.5px;color:var(--touch);min-height:14px}
+.load{position:fixed;inset:0;display:grid;place-items:center;color:var(--ink3);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;transition:opacity .4s ease}
+</style>
+<canvas id="stage"></canvas>
+<div class="load" id="load">firing the kiln</div>
+<div class="dock" id="dock"></div>
+<div class="dock pal" id="palDock"></div>
+<div class="panel" id="panel"></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RectAreaLightHelper } from 'three/addons/helpers/RectAreaLightHelper.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const $ = (s) => document.querySelector(s);
+
+/* ---------- the look ---------- */
+const S = { frost: 0.55, glow: 0.55, light: 2.2, warm: 0.5, lift: 1.0, spin: 1, bloom: 0.35, exposure: 1.05, mat: 'frost', round: 2 };
+const CREAM = new THREE.Color('#F6F1E8');
+
+/* five colourways. Each is a pastel fade: the wall runs from a top colour
+   to a bottom colour (baked into the vertices, so it is a true vertical
+   gradient through the frost), the contents take three roles (deep, warm,
+   pale), and the paper is the ground. The reference is 'peach'. 'sky'
+   wakes up as jelly: clearer, glossier, lit from inside. */
+const PALETTES = [
+  { name: 'peach',    paper: '#F8EFE4', wall: ['#FBF1E8', '#EFC7AE'], c1: '#9a5a2c', c2: '#e8934a', c3: '#f6d7b8', jelly: false },
+  { name: 'lavender', paper: '#F4F0F8', wall: ['#F3ECF9', '#C9B6E6'], c1: '#8c6fb3', c2: '#e39dc6', c3: '#f4d3e2', jelly: false },
+  { name: 'mint',     paper: '#EFF5F0', wall: ['#EDF6EF', '#B2D9C3'], c1: '#5f9b7e', c2: '#f0cf78', c3: '#fbf0cf', jelly: false },
+  { name: 'sky',      paper: '#EEF3F9', wall: ['#E6F0FB', '#9EC4EE'], c1: '#5d8ed0', c2: '#9fc6f2', c3: '#eaf3ff', jelly: true },
+  { name: 'rose',     paper: '#F9EEF1', wall: ['#FCEAEE', '#EEB2BF'], c1: '#a8485e', c2: '#ec8fa3', c3: '#f9d6dc', jelly: false },
+];
+let pal = PALETTES[0];
+
+const canvas = $('#stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.toneMapping = THREE.AgXToneMapping;
+renderer.toneMappingExposure = S.exposure;
+const scene = new THREE.Scene();
+scene.background = CREAM.clone();
+const pm = new THREE.PMREMGenerator(renderer);
+scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
+camera.position.set(0.4, 3.2, 15);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.minDistance = 5; controls.maxDistance = 30;
+controls.maxPolarAngle = Math.PI * 0.6;
+controls.target.set(0, 1.8, 0);
+
+RectAreaLightUniformsLib.init();
+const lights = new THREE.Group(); scene.add(lights);
+function area(color, power, w, h, pos, look) {
+  const L = new THREE.RectAreaLight(color, power, w, h); L.position.set(...pos); L.lookAt(...look); lights.add(L); return L;
+}
+const key = area(0xfff4e6, 14, 8, 8, [5, 7, 6], [0, 1.5, 0]);
+const fill = area(0xf4f6ff, 5, 10, 10, [-3, 3, 9], [0, 1.5, 0]);
+const rim = area(0xffeedd, 12, 7, 7, [-4, 4.5, -6], [0, 1.5, 0]);
+scene.add(new THREE.HemisphereLight(0xfff8f0, 0xe8dccb, 0.35));
+
+/* the ground: a sheet of the paper's own light, so nothing has a horizon */
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 48), new THREE.MeshBasicMaterial({ color: CREAM }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; scene.add(ground);
+
+/* materials */
+function frosted(frost = S.frost) {
+  const jelly = S.mat === 'jelly';
+  const m = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0.96, 0.96, 0.96), vertexColors: true, metalness: 0,
+    roughness: jelly ? 0.12 : Math.max(0.25, frost * 0.9),
+    transmission: jelly ? 0.97 : 0.92, thickness: jelly ? 2.2 : 0.9, ior: jelly ? 1.42 : 1.32,
+    attenuationColor: new THREE.Color(pal.wall[1]).lerp(new THREE.Color(1, 1, 1), jelly ? 0.2 : 0.6), attenuationDistance: jelly ? 1.6 : 2.5,
+    specularIntensity: jelly ? 0.9 : 0.35, clearcoat: jelly ? 0.5 : 0, clearcoatRoughness: 0.15,
+    sheen: jelly ? 0 : 0.3, sheenRoughness: 0.9, sheenColor: new THREE.Color(1, 0.98, 0.95),
+    side: THREE.DoubleSide,
+  });
+  m.userData.frosted = true;
+  return m;
+}
+/* bake a vertical fade into a mesh: top colour at its highest vertex, bottom at its lowest */
+function fade(mesh, topHex, bottomHex) {
+  const g = mesh.geometry; const pos = g.attributes.position; g.computeBoundingBox();
+  const y0 = g.boundingBox.min.y, y1 = g.boundingBox.max.y, top = new THREE.Color(topHex), bot = new THREE.Color(bottomHex);
+  const col = new Float32Array(pos.count * 3); const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) { const t = (pos.getY(i) - y0) / Math.max(1e-6, y1 - y0); c.lerpColors(bot, top, THREE.MathUtils.smoothstep(t, 0, 1)); col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return mesh;
+}
+function soft(hex, glow = 1) {
+  const c = new THREE.Color(hex);
+  return new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, emissive: c, emissiveIntensity: glow * S.glow });
+}
+const black = new THREE.MeshPhysicalMaterial({ color: 0x080707, roughness: 0.18, clearcoat: 0.7, clearcoatRoughness: 0.08 });
+
+/* geometry helpers: a lathe takes (r, z) pairs, same as the Blender files */
+/* the handles are a control polygon, not the surface. Chaikin corner cutting
+   rounds every corner between them (S.round times, 0 is faceted, 3 is soft
+   as a pebble), with the two ends left where they are so points on the
+   axis stay on the axis */
+function rounded(profile, n) {
+  let p = profile.map(([r, z]) => [r, z]);
+  for (let k = 0; k < n; k++) {
+    const q = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) {
+      const a = p[i], b = p[i + 1];
+      q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+      q.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    q.push(p[p.length - 1]);
+    p = q;
+  }
+  return p;
+}
+function latheGeom(profile, segs = 128) {
+  const pts = rounded(profile, S.round).map(([r, z]) => new THREE.Vector2(Math.max(r, 0.0001), z));
+  const g = new THREE.LatheGeometry(pts, segs); g.computeVertexNormals(); return g;
+}
+let partMeshes = {};
+function lathe(profile, mat, part = null) {
+  const m = new THREE.Mesh(latheGeom(profile), mat);
+  if (mat.userData.frosted) fade(m, pal.wall[0], pal.wall[1]);
+  if (part) (partMeshes[part] = partMeshes[part] || []).push(m);
+  return m;
+}
+/* a profile changed: swap the geometry on every mesh of that part, nothing else moves */
+function reshape(part) {
+  for (const m of partMeshes[part] || []) {
+    m.geometry.dispose(); m.geometry = latheGeom(P(OBJECTS[curIndex][0], part));
+    if (m.material.userData.frosted) fade(m, pal.wall[0], pal.wall[1]);
+  }
+}
+function blob(pos, r, mat, squash = [1, 1, 1]) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), mat);
+  if (mat.userData.frosted) fade(m, pal.wall[0], pal.wall[1]);
+  m.position.set(pos[0], pos[2], -pos[1]);           // blender (x, y, z) to three (x, z, -y)
+  m.scale.set(squash[0], squash[2], squash[1]);
+  return m;
+}
+function tube(pts, thick, mat) {
+  const curve = new THREE.CatmullRomCurve3(pts.map(([x, y, z]) => new THREE.Vector3(x, z, -y)));
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, 64, thick, 16, false), mat);
+}
+function curl(radius, turns, thick, mat) {
+  const pts = []; const n = 48;
+  for (let i = 0; i < n; i++) { const t = i / (n - 1), a = t * turns * 2 * Math.PI, r = radius * (1 - 0.55 * t); pts.push(new THREE.Vector3(0, r * Math.sin(a) + 0.3 * t, r * Math.cos(a))); }
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 96, thick, 16, false), mat);
+}
+let seed = 5; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const between = (a, b) => a + (b - a) * rnd();
+
+/* ---------- the shapes: every lathe profile as (r, z) pairs, by object and part.
+   This is what the shape pane edits; saved to shapes.json next to the page. ---------- */
+const DEFAULT_SHAPES = {"pot":{"bowl":[[0,0],[1.048,-0.15],[1.778,0.188],[2.075,0.781],[2.117,1.412],[1.964,1.662],[1.82,1.75],[1.778,1.315],[1.72,0.95],[1.4,0.4],[0,0.3]],"lid":[[0,0],[1.2,0],[1.98,-0.1],[1.98,0.02],[1.332,0.303],[0.653,0.46],[0.086,0.514]],"knob":[[0,0],[0.42,0],[0.45,0.2],[0.272,0.238],[0.038,0.161]]},"teapot":{"body":[[0,0],[0.8,0],[1.4,0.25],[1.75,0.9],[1.7,1.6],[1.3,2.15],[0.75,2.4],[0.75,2.55],[0,2.55],[0,2.45],[0.65,2.45],[0.65,2.32],[1.18,2.05],[1.58,1.55],[1.62,0.9],[1.3,0.35],[0,0.14]],"tea":[[0,0.15],[1.28,0.36],[1.6,0.9],[1.6,1.45],[0,1.45]],"lid":[[0,0],[0.85,0],[0.6,0.25],[0.22,0.4],[0,0.45]],"cup":[[0,0],[0.55,0],[0.78,0.5],[0.85,1],[0.74,1],[0.68,0.5],[0.48,0.12],[0,0.1]]},"jar":{"jar":[[0,0],[1.095,-0.046],[1.589,-0.077],[1.525,2.882],[1.5,3.3],[1.38,3.3],[1.28,3.1],[1.257,0.253],[1,0.14],[0,0.12]],"lid":[[0,0],[1.5,0],[1.5,0.18],[1.2,0.38],[0.6,0.63],[0,0.582]]},"vase":{"vase":[[0,0],[0.8,0],[1.35,0.4],[1.5,1.1],[1.2,1.9],[0.75,2.3],[0.95,2.9],[0.8,3.5],[0.5,3.9],[0.55,4.05],[0.42,4.05],[0.38,3.9],[0.66,3.5],[0.8,2.9],[0.62,2.3],[1.05,1.9],[1.36,1.1],[1.22,0.45],[0,0.15]],"water":[[0,0.16],[1.2,0.46],[1.34,1.1],[1.1,1.75],[0,1.75]]},"cloche":{"stand":[[0,0],[1.075,-0.184],[0.766,0.325],[1.821,0.798],[1.805,1.072],[2.068,1.438],[0,1.5]],"dome":[[2.055,0.165],[2.155,1.036],[1.709,1.865],[0.894,2.577],[0,3.035],[0,2.677],[0.785,2.356],[1.529,1.743],[1.896,0.995],[1.849,0.131]],"knob":[[0.029,0.111],[0.3,0],[0.32,0.25],[0.197,0.375],[0.023,0.289]]}};
+let SHAPES = JSON.parse(JSON.stringify(DEFAULT_SHAPES));
+const P = (o, part) => SHAPES[o][part];
+
+/* ---------- the five objects. Each returns { group, lid, frosted: [...], softs: [...] } ---------- */
+function pot() {
+  seed = 5;
+  const g = new THREE.Group(); const wall = frosted(), lidm = frosted(0.5);
+  const chest = soft(pal.c1, 0.6), glaze = soft(pal.c2, 1.0);
+  const bowl = lathe(P('pot', 'bowl'), wall, 'bowl');
+  g.add(bowl);
+  for (let i = 0; i < 26; i++) { const a = between(0, 6.283), r = Math.pow(between(0, 1.35), 0.7) * 1.35; const z = 0.55 + between(0, 0.9) * (1 - r / 1.9) + 0.35; g.add(blob([r * Math.cos(a), r * Math.sin(a), z], between(0.28, 0.42), rnd() < 0.45 ? glaze : chest, [1, 0.9, 0.78])); }
+  const lid = new THREE.Group();
+  lid.add(lathe(P('pot', 'lid'), lidm, 'lid'));
+  const knob = lathe(P('pot', 'knob'), lidm, 'knob'); knob.position.y = 0.45; lid.add(knob);
+  lid.position.set(0.25, 3.1, -0.3); lid.rotation.set(THREE.MathUtils.degToRad(-9), 0, THREE.MathUtils.degToRad(-6)); g.add(lid);
+  // two handles, one each side, mirrored
+  const h = curl(0.7, 1.5, 0.11, black); h.position.set(-1.85, 1.6, 0); g.add(h);
+  const h2 = curl(0.7, 1.5, 0.11, black); h2.position.set(1.85, 1.6, 0); h2.rotation.y = Math.PI; g.add(h2);
+  return { group: g, lid, lidBase: lid.position.y, frosted: [wall, lidm], softs: [chest, glaze], target: 1.8, dist: 15 };
+}
+function teapot() {
+  const g = new THREE.Group(); const wall = frosted(0.5), tea = soft(pal.c2, 1.2);
+  g.add(lathe(P('teapot', 'body'), wall, 'body'));
+  g.add(lathe(P('teapot', 'tea'), tea, 'tea'));
+  const lid = new THREE.Group(); lid.add(lathe(P('teapot', 'lid'), wall, 'lid')); lid.position.y = 2.5; g.add(lid);
+  g.add(tube([[1.5, 0, 1.0], [2.2, 0, 1.3], [2.7, 0, 1.9], [2.95, 0, 2.4]], 0.17, black));
+  g.add(tube([[-1.55, 0, 1.9], [-2.4, 0, 2.1], [-2.75, 0, 1.4], [-2.4, 0, 0.7], [-1.6, 0, 0.6]], 0.12, black));
+  const cup = new THREE.Group();
+  cup.add(lathe(P('teapot', 'cup'), wall, 'cup'));
+  cup.add(lathe([[0, 0.12], [0.5, 0.14], [0.7, 0.55], [0.7, 0.75], [0, 0.75]], tea));
+  cup.position.set(2.6, 0, 1.9); g.add(cup);
+  return { group: g, lid, lidBase: 2.5, liftScale: 0.4, frosted: [wall], softs: [tea], target: 1.5, dist: 14 };
+}
+function jar() {
+  seed = 3;
+  const g = new THREE.Group(); const wall = frosted(0.45);
+  const sweets = [soft(pal.c3, 0.7), soft(pal.c2, 0.9), soft(pal.c3, 0.6), soft(pal.c1, 0.8)];
+  g.add(lathe(P('jar', 'jar'), wall, 'jar'));
+  const lid = new THREE.Group(); lid.add(lathe(P('jar', 'lid'), wall, 'lid')); lid.add(blob([0, 0, 0.88], 0.22, wall)); lid.position.y = 3.32; g.add(lid);
+  for (let i = 0; i < 70; i++) { const a = between(0, 6.283), r = Math.pow(between(0, 1), 0.6); const z = 0.4 + between(0, 2.4); g.add(blob([r * Math.cos(a), r * Math.sin(a), z], between(0.2, 0.3), sweets[Math.floor(rnd() * 4)], [1, 1, 0.8])); }
+  g.add(blob([2.0, -1.4, 0.24], 0.26, sweets[0], [1, 1, 0.85]));
+  return { group: g, lid, lidBase: 3.32, liftScale: 0.5, frosted: [wall], softs: sweets, target: 2.1, dist: 16 };
+}
+function vase() {
+  seed = 11;
+  const g = new THREE.Group(); const wall = frosted(0.5), water = soft(pal.c3, 0.5), bloss = soft(pal.c2, 0.25), bud = soft(pal.c1, 0.3);
+  g.add(lathe(P('vase', 'vase'), wall, 'vase'));
+  g.add(lathe(P('vase', 'water'), water, 'water'));
+  g.add(tube([[0.1, 0, 2.0], [0.2, 0.1, 4.2], [0.9, 0.2, 5.4], [2.0, 0.1, 6.0], [2.9, 0.0, 6.9]], 0.07, black));
+  g.add(tube([[0.6, 0.15, 4.9], [-0.4, 0.3, 5.7], [-1.1, 0.2, 6.5]], 0.045, black));
+  g.add(tube([[2.0, 0.1, 6.0], [2.3, -0.1, 7.0]], 0.04, black));
+  for (const [x, y, z] of [[1.3, 0.2, 5.75], [2.5, 0.05, 6.55], [2.9, 0, 6.95], [-0.7, 0.28, 6.1], [-1.1, 0.2, 6.55], [2.3, -0.1, 7.05], [0.5, 0.2, 4.9]]) {
+    for (let k = 0; k < 4; k++) { const a = k * 1.57 + between(-0.2, 0.2); g.add(blob([x + 0.22 * Math.cos(a), y + 0.1 * Math.sin(a * 2), z + 0.22 * Math.sin(a)], 0.2, bloss, [1, 0.6, 1])); }
+    g.add(blob([x, y, z], 0.14, bud));
+  }
+  return { group: g, lid: null, frosted: [wall], softs: [water, bloss, bud], target: 3.6, dist: 21 };
+}
+function cloche() {
+  const g = new THREE.Group(); const wall = frosted(0.5), plate = frosted(0.65);
+  const cake = soft(pal.c3, 0.25), jam = soft(pal.c1, 0.9), cream = soft('#fdf5e6', 0.15);   // the pale layers blow out fast under the dome
+  g.add(lathe(P('cloche', 'stand'), plate, 'stand'));
+  g.add(lathe([[0, 1.5], [1.25, 1.5], [1.25, 2.1], [0, 2.1]], cake));
+  g.add(lathe([[0, 2.08], [1.3, 2.08], [1.3, 2.22], [0, 2.22]], jam));
+  g.add(lathe([[0, 2.2], [1.25, 2.2], [1.25, 2.8], [0, 2.8]], cake));
+  g.add(lathe([[0, 2.78], [1.3, 2.78], [1.35, 2.95], [1.0, 3.05], [0, 3.1]], cream));
+  const lid = new THREE.Group();
+  lid.add(lathe(P('cloche', 'dome'), wall, 'dome'));
+  const knob = lathe(P('cloche', 'knob'), black, 'knob'); knob.position.y = 2.85; lid.add(knob);
+  lid.position.set(0.2, 2.9, -0.2); lid.rotation.set(THREE.MathUtils.degToRad(-7), 0, THREE.MathUtils.degToRad(-5)); g.add(lid);
+  return { group: g, lid, lidBase: 2.9, liftScale: 0.8, frosted: [wall, plate], softs: [cake, jam, cream], target: 2.8, dist: 18 };
+}
+const OBJECTS = [['pot', pot], ['teapot', teapot], ['jar', jar], ['vase', vase], ['cloche', cloche]];
+let cur = null, curIndex = 0;
+
+function show(i) {
+  if (cur) scene.remove(cur.group);
+  partMeshes = {};
+  curIndex = i; cur = OBJECTS[i][1]();
+  if (typeof pane !== 'undefined') pane.refresh();
+  scene.add(cur.group);
+  $('#dock').querySelectorAll('button').forEach((b, j) => b.classList.toggle('on', j === i));
+  controls.target.set(0, cur.target, 0);
+  const d = camera.position.clone().sub(controls.target).normalize().multiplyScalar(cur.dist);
+  camera.position.copy(controls.target).add(d);
+  applyLook();
+  const u = new URLSearchParams(location.search); u.set('o', i); history.replaceState(null, '', '?' + u);
+}
+
+function applyLook() {
+  if (!cur) return;
+  cur.frosted.forEach((m) => { m.roughness = Math.max(0.25, S.frost * 0.9); m.thickness = 0.5 + S.frost; });
+  cur.softs.forEach((m) => { m.emissiveIntensity = (m.userData.g ?? (m.userData.g = m.emissiveIntensity / Math.max(0.01, S._glowWas || 0.55))) * S.glow; });
+  S._glowWas = S.glow;
+  renderer.toneMappingExposure = S.exposure;
+  const paper = new THREE.Color().lerpColors(new THREE.Color('#FBFAF8'), new THREE.Color(pal.paper), 0.4 + 0.6 * S.warm);
+  scene.background.copy(paper); ground.material.color.copy(paper);
+  document.documentElement.style.setProperty('--paper', '#' + paper.getHexString());
+  bloomPass.strength = S.bloom;
+  // the key light walks around the object
+  const a = S.light; key.position.set(Math.cos(a) * 8, 7, Math.sin(a) * 8); key.lookAt(0, 1.5, 0);
+  rim.position.set(Math.cos(a + Math.PI) * 7, 4.5, Math.sin(a + Math.PI) * 7); rim.lookAt(0, 1.5, 0);
+}
+
+/* post: a little bloom so the warm core breathes into the frost */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), S.bloom, 0.9, 0.86);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+/* ---------- the shape pane: pinch and drag the object's profile.
+   A lathe is a line turned around its axis, so the whole form lives in a
+   handful of (r, z) points. The pane draws that line flat, mirrored so it
+   reads as a vessel, and every point is a handle. Drag one and the mesh
+   rebuilds under it. Double click an edge to add a point, a point to
+   remove it. Save writes shapes.json; every load reads it. ---------- */
+const pane = (() => {
+  const el = document.createElement('div'); el.className = 'pane'; el.hidden = true;
+  el.innerHTML = `<div class="parts" id="parts"></div><canvas id="prof" width="680" height="880"></canvas><div class="row"><button id="shReset">reset</button><button id="shSave">save</button><button id="shCopy">copy json</button></div><div class="msg" id="shMsg">drag a point; double click an edge to add one, a point to remove it</div>`;
+  document.body.appendChild(el);
+  const cv = el.querySelector('#prof'), ctx = cv.getContext('2d'), parts = el.querySelector('#parts'), msg = el.querySelector('#shMsg');
+  const W = 340, H = 440, PAD = 24;
+  let part = null, drag = null, hover = -1;
+  let box = { k: 60, cx: W / 2, cy: H / 2, zmid: 1 };
+  const obj = () => OBJECTS[curIndex][0];
+  const prof = () => P(obj(), part);
+  function fit() {
+    const pr = prof();
+    const rmax = Math.max(0.5, ...pr.map((p) => p[0])), z0 = Math.min(...pr.map((p) => p[1])), z1 = Math.max(...pr.map((p) => p[1]));
+    const k = Math.min((W - 2 * PAD) / (2 * rmax * 1.15), (H - 2 * PAD) / Math.max(0.5, (z1 - z0) * 1.15));
+    box = { k, cx: W / 2, cy: H / 2, zmid: (z0 + z1) / 2 };
+  }
+  const toX = (r) => box.cx + r * box.k;
+  const toY = (z) => box.cy - (z - box.zmid) * box.k;
+  const fromXY = (x, y) => [Math.max(0, (x - box.cx) / box.k), box.zmid - (y - box.cy) / box.k];
+  function draw() {
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (!part) return;
+    const pr = prof();
+    // the axis
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(20,23,27,.14)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, PAD / 2); ctx.lineTo(W / 2, H - PAD / 2); ctx.stroke(); ctx.setLineDash([]);
+    // the mirrored half, faint, so it reads as a vessel
+    ctx.strokeStyle = 'rgba(20,23,27,.18)'; ctx.lineWidth = 1.2; ctx.beginPath();
+    pr.forEach(([r, z], i) => { const x = W - toX(r), y = toY(z); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+    // the live half
+    ctx.strokeStyle = '#4c5be4'; ctx.fillStyle = 'rgba(76,91,228,.06)'; ctx.lineWidth = 1.4; ctx.beginPath();
+    pr.forEach(([r, z], i) => { const x = toX(r), y = toY(z); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.fill(); ctx.stroke();
+    // the handles
+    pr.forEach(([r, z], i) => { ctx.beginPath(); ctx.arc(toX(r), toY(z), i === hover || i === drag ? 7 : 5.5, 0, Math.PI * 2); ctx.fillStyle = i === drag ? '#4c5be4' : '#fff'; ctx.fill(); ctx.strokeStyle = '#4c5be4'; ctx.lineWidth = 1.4; ctx.stroke(); });
+  }
+  function listParts() {
+    parts.innerHTML = '';
+    for (const n of Object.keys(SHAPES[obj()])) { const b = document.createElement('button'); b.textContent = n; b.className = n === part ? 'on' : ''; b.onclick = () => { part = n; fit(); listParts(); draw(); }; parts.appendChild(b); }
+  }
+  function local(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; }
+  function hit(x, y) { const pr = prof(); let bi = -1, bd = 14; pr.forEach(([r, z], i) => { const d = Math.hypot(toX(r) - x, toY(z) - y); if (d < bd) { bd = d; bi = i; } }); return bi; }
+  cv.addEventListener('pointerdown', (e) => { const [x, y] = local(e); const i = hit(x, y); if (i < 0) return; drag = i; cv.setPointerCapture(e.pointerId); draw(); e.preventDefault(); });
+  cv.addEventListener('pointermove', (e) => {
+    const [x, y] = local(e);
+    if (drag == null) { const h = hit(x, y); if (h !== hover) { hover = h; draw(); } cv.style.cursor = h >= 0 ? 'grab' : 'crosshair'; return; }
+    const [r, z] = fromXY(x, y); prof()[drag] = [+r.toFixed(3), +z.toFixed(3)]; draw(); reshape(part);
+  });
+  cv.addEventListener('pointerup', () => { drag = null; draw(); });
+  cv.addEventListener('dblclick', (e) => {
+    const [x, y] = local(e); const pr = prof(); const i = hit(x, y);
+    if (i >= 0 && pr.length > 3) { pr.splice(i, 1); draw(); reshape(part); return; }
+    let bi = 0, bd = Infinity;
+    for (let k = 0; k < pr.length - 1; k++) {
+      const a = [toX(pr[k][0]), toY(pr[k][1])], b = [toX(pr[k + 1][0]), toY(pr[k + 1][1])];
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * (b[0] - a[0]) + (y - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1)));
+      const d = Math.hypot(a[0] + (b[0] - a[0]) * t - x, a[1] + (b[1] - a[1]) * t - y);
+      if (d < bd) { bd = d; bi = k; }
+    }
+    const [r, z] = fromXY(x, y); pr.splice(bi + 1, 0, [+r.toFixed(3), +z.toFixed(3)]); draw(); reshape(part);
+  });
+  el.querySelector('#shReset').onclick = () => { SHAPES[obj()] = JSON.parse(JSON.stringify(DEFAULT_SHAPES[obj()])); show(curIndex); msg.textContent = 'back to the default shapes (not saved)'; };
+  el.querySelector('#shSave').onclick = async () => { try { const r = await fetch('/save', { method: 'POST', body: JSON.stringify(SHAPES, null, 1) }); msg.textContent = r.ok ? 'saved shapes.json' : 'could not save'; } catch (e) { msg.textContent = 'could not save: ' + e.message; } };
+  el.querySelector('#shCopy').onclick = async () => { try { await navigator.clipboard.writeText(JSON.stringify(SHAPES)); msg.textContent = 'copied'; } catch (e) { msg.textContent = 'copy blocked by the browser'; } };
+  function refresh() {
+    if (el.hidden) return;
+    try {
+      const names = Object.keys(SHAPES[obj()]); if (!names.includes(part)) part = names[0];
+      fit(); listParts(); draw();
+    } catch (e) { msg.textContent = 'shape pane error: ' + e.message; console.error(e); }
+  }
+  function toggle() { el.hidden = !el.hidden; $('#shape').classList.toggle('on', !el.hidden); refresh(); }
+  if (location.hostname !== 'localhost') el.querySelector('#shSave').hidden = true;   // nowhere to save to when hosted
+  return { toggle, refresh };
+})();
+
+/* the dock and the panel */
+OBJECTS.forEach(([n], i) => { const b = document.createElement('button'); b.textContent = n; b.onclick = () => show(i); $('#dock').appendChild(b); });
+PALETTES.forEach((p, i) => {
+  const b = document.createElement('button'); b.title = p.name; b.setAttribute('aria-label', p.name);
+  b.style.background = `linear-gradient(${p.wall[0]}, ${p.wall[1]})`;
+  b.onclick = () => pickPalette(i); $('#palDock').appendChild(b);
+});
+function pickPalette(i, rebuild = true) {
+  pal = PALETTES[i];
+  $('#palDock').querySelectorAll('button').forEach((b, j) => b.classList.toggle('on', j === i));
+  S.mat = pal.jelly ? 'jelly' : 'frost'; syncMat();
+  if (rebuild) show(curIndex);
+  const u = new URLSearchParams(location.search); u.set('c', i); history.replaceState(null, '', '?' + u);
+}
+function syncMat() { $('#mFrost') && $('#mFrost').classList.toggle('on', S.mat === 'frost'); $('#mJelly') && $('#mJelly').classList.toggle('on', S.mat === 'jelly'); }
+const SLIDERS = [
+  ['frost', 'frost', 0.25, 0.9, 0.01, (v) => v.toFixed(2)],
+  ['glow', 'glow', 0, 1.6, 0.02, (v) => v.toFixed(2)],
+  ['light', 'light', 0, 6.283, 0.02, (v) => Math.round(v * 57.3) + '°'],
+  ['warm', 'paper', 0, 1, 0.02, (v) => Math.round(v * 100) + '%'],
+  ['lift', 'lid lift', 0, 2, 0.02, (v) => v.toFixed(2)],
+  ['bloom', 'bloom', 0, 1, 0.02, (v) => v.toFixed(2)],
+  ['exposure', 'exposure', 0.6, 1.6, 0.02, (v) => v.toFixed(2)],
+  ['round', 'rounding', 0, 3, 1, (v) => ['faceted', 'soft', 'rounded', 'pebble'][v]],
+];
+$('#panel').innerHTML = `<div class="row"><button id="mFrost" class="on">frost</button><button id="mJelly">jelly</button><button id="spin" class="on">turning</button><button id="shape">shape</button><button id="save">save png</button></div>`;
+// the sliders are gone from the page; the numbers still live in S and in the URL (?frost=0.4&glow=0.8 ...)
+SLIDERS.forEach(([k]) => { const v = new URLSearchParams(location.search).get(k); if (v != null) S[k] = +v; });
+$('#mFrost').onclick = () => { S.mat = 'frost'; syncMat(); show(curIndex); };
+$('#mJelly').onclick = () => { S.mat = 'jelly'; syncMat(); show(curIndex); };
+$('#shape').onclick = () => pane.toggle();
+$('#spin').onclick = () => { S.spin = S.spin ? 0 : 1; $('#spin').classList.toggle('on', !!S.spin); $('#spin').textContent = S.spin ? 'turning' : 'still'; };
+$('#save').onclick = () => { render(); const a = document.createElement('a'); a.download = 'porcelain-' + OBJECTS[curIndex][0] + '.png'; a.href = canvas.toDataURL('image/png'); a.click(); };
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  composer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+let t0 = performance.now();
+function render() { composer.render(); }
+function tick(now) {
+  const t = (now - t0) / 1000;
+  if (cur) {
+    if (S.spin) cur.group.rotation.y += 0.0025;
+    if (S.mat === 'jelly') { const w = 1 + 0.012 * Math.sin(t * 2.3); cur.group.scale.set(w, 1 / w, w); } else cur.group.scale.set(1, 1, 1);
+    if (cur.lid) {
+      // the lid floats: a slow breath up and down, and a lean that follows
+      const k = cur.liftScale ?? 1;
+      cur.lid.position.y = cur.lidBase + S.lift * k * (0.35 + 0.18 * Math.sin(t * 0.9));
+      cur.lid.rotation.z = THREE.MathUtils.degToRad(-6 * S.lift * k) + 0.04 * Math.sin(t * 0.7);
+    }
+  }
+  controls.update();
+  render();
+  requestAnimationFrame(tick);
+}
+window.__p = { camera, controls, scene, get cur() { return cur; }, renderer, THREE };
+const q = new URLSearchParams(location.search);
+try { const r = await fetch('shapes.json?' + Date.now(), { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (j && j.pot) SHAPES = j; } } catch (e) { /* no saved shapes yet */ }
+pickPalette(+(q.get('c') || 0), false);
+show(+(q.get('o') || 0));
+$('#load').style.opacity = 0;
+requestAnimationFrame(tick);
+</script>

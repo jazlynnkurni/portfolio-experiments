@@ -162,4 +162,12 @@ export const EXPERIMENTS: ExperimentEntry[] = [
     interactions: ["pick a colourway", "watch the edges"],
     weight: "light",
   },
+  {
+    slug: "porcelain",
+    title: "Porcelain",
+    blurb:
+      "The frosted-porcelain look of a rednote calendar, live. A thin transmissive wall at high roughness, warm contents glowing through it, three soft lights and no shadows. Five vessels, five pastel fades baked into the clay, and a jelly mode that is clearer, glossier and wobbles. Press shape and drag the profile points; the pot reshapes under your hand.",
+    interactions: ["drag to turn", "scroll closer", "shape to pull the profile"],
+    weight: "heavy",
+  },
 ];

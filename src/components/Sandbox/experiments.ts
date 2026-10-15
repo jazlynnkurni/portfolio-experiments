@@ -15,6 +15,22 @@ export type ExperimentEntry = {
  */
 export const EXPERIMENTS: ExperimentEntry[] = [
   {
+    slug: "porcelain",
+    title: "Porcelain",
+    blurb:
+      "The frosted-porcelain look of a rednote calendar, live. A thin transmissive wall at high roughness, warm contents glowing through it, three soft lights and no shadows. Five vessels, five pastel fades baked into the clay, and a jelly mode that is clearer, glossier and wobbles. Press shape and drag the profile points; the pot reshapes under your hand.",
+    interactions: ["drag to turn", "scroll closer", "shape to pull the profile"],
+    weight: "heavy",
+  },
+  {
+    slug: "out-of-office",
+    title: "Out of Office",
+    blurb:
+      "A footer for a social app about never being off work. Six of the same man cross it with a briefcase, each trailing his own echo, and nobody slides: hip, knee and ankle follow published gait-lab curves, the planted foot is held still in the world and the body moves by whatever the leg demands. The case is a pendulum on the wrist. Whoever leaves on the right rejoins at the back. Three colourways in the bottom row.",
+    interactions: ["pick a colourway", "watch the edges"],
+    weight: "light",
+  },
+  {
     slug: "billiards",
     title: "Billiards",
     blurb:
@@ -153,21 +169,5 @@ export const EXPERIMENTS: ExperimentEntry[] = [
       "The night register. Crushed velvet with a bulb inside it, shaded cell by cell off distance to the filament and two octaves of pile noise, so density inverts: bright core, dark ribs, glow at the turning rim. Every strand of fringe is a matter pendulum, the pointer is a draft, and the moth is the one thing nobody designed.",
     interactions: ["move to make a draft", "switch the bulb"],
     weight: "light",
-  },
-  {
-    slug: "out-of-office",
-    title: "Out of Office",
-    blurb:
-      "A footer for a social app about never being off work. Six of the same man cross it with a briefcase, each trailing his own echo, and nobody slides: hip, knee and ankle follow published gait-lab curves, the planted foot is held still in the world and the body moves by whatever the leg demands. The case is a pendulum on the wrist. Whoever leaves on the right rejoins at the back. Three colourways in the bottom row.",
-    interactions: ["pick a colourway", "watch the edges"],
-    weight: "light",
-  },
-  {
-    slug: "porcelain",
-    title: "Porcelain",
-    blurb:
-      "The frosted-porcelain look of a rednote calendar, live. A thin transmissive wall at high roughness, warm contents glowing through it, three soft lights and no shadows. Five vessels, five pastel fades baked into the clay, and a jelly mode that is clearer, glossier and wobbles. Press shape and drag the profile points; the pot reshapes under your hand.",
-    interactions: ["drag to turn", "scroll closer", "shape to pull the profile"],
-    weight: "heavy",
   },
 ];

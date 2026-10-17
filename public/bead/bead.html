@@ -1,0 +1,200 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bead</title>
+<link rel="stylesheet" href="menu.css">
+<style>
+/* THE BEAD. A single drop of glass in the top right corner. Reach it and
+   it buds: the first option pulls out of the bead stretching a neck of
+   liquid behind it, and as it clears, the next option pulls out of THAT
+   one, and so on down the line, each born from the one before. A goo
+   filter fuses anything close enough, so the necks thin and snap the way
+   liquid does. Once a drop has settled it clears into glass. Leave and
+   they run back into each other, last into the one before it, and into
+   the bead. */
+/* the stage: white, nothing else on the page, the nav alone in the middle and
+   close up, with shadows under the orb and the capsules so they float */
+body{background:#fff}
+.field,.page,.back{display:none}
+.bead{position:fixed;top:50%;left:50%;z-index:10;width:760px;height:90px;pointer-events:none;transform:translate(calc(-50% - 220px),-50%) scale(1.8);transform-origin:50% 50%}
+.bead .item{box-shadow:inset 0 1px 0 rgba(255,255,255,.85),inset 0 -1px 0 rgba(255,255,255,.25),0 2px 4px rgba(20,23,27,.06),0 18px 40px rgba(20,23,27,.16)}
+.bead .drop canvas.orb{filter:drop-shadow(0 14px 22px rgba(20,23,27,.20))}
+.liq{filter:url(#goo) drop-shadow(0 14px 22px rgba(20,23,27,.10))}
+/* the liquid: the lens's own colour, not milk. One gradient fixed to the
+   page (the peach to periwinkle to mint behind the lens), and every drop
+   and every capsule shows the window of it that it is passing over, so
+   the colour flows left with the liquid instead of riding on each pill */
+.liq{position:absolute;inset:0;filter:url(#goo)}
+.liq i{position:absolute;top:22px;right:24px;height:44px;width:44px;border-radius:999px;background-image:var(--lens);background-size:760px 44px;background-repeat:repeat-x;transform-origin:100% 50%;will-change:transform,width,background-position}
+.bead{--lens:linear-gradient(90deg,#F7DECC 0%,#D6DBF7 30%,#DBEEE2 55%,#D6DBF7 78%,#F7DECC 100%)}
+/* the fill: liquid gushing in from the bead's side of each capsule. It is a
+   strip clipped to the capsule, whose width is however far the flow front
+   has reached, with a rounded meniscus on its leading edge and the gradient
+   sliding through it so it reads as moving, not painted */
+.bead .item{overflow:hidden}
+.bead .item .fill{position:absolute;top:0;left:0;bottom:0;width:0;border-radius:0 22px 22px 0/0 50% 50% 0;background-image:var(--lens);background-size:760px 44px;background-repeat:repeat-x;opacity:.72;pointer-events:none;will-change:width,background-position}
+.bead .item .fill::after{content:"";position:absolute;right:-6px;top:4px;bottom:4px;width:12px;border-radius:50%;background:rgba(255,255,255,.55);filter:blur(2px)}
+.bead .item .l{position:relative;color:#fff;text-shadow:0 1px 2px rgba(20,23,27,.18)}
+/* the glass: the real pills and the bead, drawn over the liquid once settled */
+.bead .item{position:absolute;top:22px;right:24px;height:44px;padding:0 18px;box-sizing:border-box;border-radius:999px;display:flex;align-items:center;opacity:0;pointer-events:none;will-change:transform,opacity;transform-origin:100% 50%}
+.bead.open .item{pointer-events:auto}
+.bead .item:hover{background:rgba(255,255,255,.55)}
+.bead .drop{position:absolute;top:22px;right:24px;width:44px;height:44px;border-radius:50%;border:0;padding:0;background:transparent;cursor:pointer;pointer-events:auto;display:block;transform-origin:50% 50%}
+.liq .core{width:34px;height:34px;right:29px;top:27px;border-radius:50%}
+.bead .drop canvas.orb{width:44px;height:44px;border-radius:50%;display:block;transition:transform .5s cubic-bezier(.33,1.18,.37,1)}
+.bead.open .drop canvas.orb{transform:scale(.86)}
+.hot{position:absolute;inset:0;pointer-events:auto}
+/* the colourways, bottom left: five dots, the only control on the page */
+.ways{position:fixed;left:50%;transform:translateX(-50%);bottom:28px;z-index:10;display:flex;gap:10px;padding:8px;border-radius:999px;background:rgba(255,255,255,.6);box-shadow:0 1px 2px rgba(20,23,27,.04),0 6px 20px rgba(20,23,27,.08)}
+.ways button{width:22px;height:22px;border-radius:50%;border:0;padding:0;cursor:pointer;outline:2px solid transparent;outline-offset:3px;transition:outline-color .18s ease,transform .18s cubic-bezier(.33,1.18,.37,1)}
+.ways button:hover{transform:scale(1.12)}
+.ways button.on{outline-color:var(--ink)}
+.bead:not(.open) .hot{pointer-events:none}
+</style>
+<body data-name="bead" data-blurb="a drop in the corner; it buds, each option pulled out of the one before">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <filter id="goo"><feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="g"/><feComposite in="SourceGraphic" in2="g" operator="atop"/></filter>
+</defs></svg>
+<nav class="bead" id="bead" aria-label="Menu">
+  <div class="hot" id="hot"></div>
+  <div class="liq" id="liq"><i class="core"></i><i></i><i></i><i></i><i></i></div>
+  <a class="item glass" href="#"><span class="fill"></span><span class="l">Projects</span></a>
+  <a class="item glass" href="#"><span class="fill"></span><span class="l">Sandbox</span></a>
+  <a class="item glass" href="#"><span class="fill"></span><span class="l">About</span></a>
+  <a class="item glass" href="#"><span class="fill"></span><span class="l">Contact</span></a>
+  <button class="drop" aria-label="Menu" aria-expanded="false"><canvas class="orb" aria-hidden="true"></canvas></button>
+</nav>
+<script src="orb/orb.js"></script>
+<script src="spring.js"></script>
+<script src="page.js"></script>
+<script>
+const nav = document.getElementById('bead'), drop = nav.querySelector('.drop'), hot = document.getElementById('hot');
+// the orb in the bead: chosen in orb/, or forced with ?orb=
+const ORB = new URLSearchParams(location.search).get('orb') || localStorage.getItem('orb') || 'lens';
+/* five colourways: what the lens bends, and what gushes through the capsules */
+const WAYS = [
+  { name: 'dawn', c: ['#F7DECC', '#D6DBF7', '#DBEEE2'] },
+  { name: 'ember', c: ['#F4B49A', '#C9A3D6', '#F6DA8E'] },
+  { name: 'sea', c: ['#C4E6EA', '#9FB2F2', '#F3E6CF'] },
+  { name: 'rose', c: ['#F6C7D2', '#DCCBF3', '#FBF1E0'] },
+  { name: 'lime', c: ['#DCE89A', '#BFD8F5', '#F7F3EA'] },
+];
+let way = +(new URLSearchParams(location.search).get('c') ?? localStorage.getItem('beadWay') ?? 0) || 0;
+const orb = Orb.attach(drop.querySelector('canvas.orb'), ORB, nav, { colors: WAYS[way].c });
+function setWay(i) {
+  way = i; localStorage.setItem('beadWay', i);
+  const [a, b, c] = WAYS[i].c;
+  nav.style.setProperty('--lens', `linear-gradient(90deg, ${a} 0%, ${b} 30%, ${c} 55%, ${b} 78%, ${a} 100%)`);
+  orb && orb.colors(WAYS[i].c);
+  document.querySelectorAll('.ways button').forEach((el, j) => el.classList.toggle('on', j === i));
+}
+const ways = document.createElement('div'); ways.className = 'ways';
+WAYS.forEach((w, i) => { const b = document.createElement('button'); b.title = w.name; b.setAttribute('aria-label', w.name); b.style.background = `linear-gradient(135deg, ${w.c[0]}, ${w.c[1]} 55%, ${w.c[2]})`; b.onclick = () => setWay(i); ways.appendChild(b); });
+document.body.appendChild(ways);
+setWay(way);
+const items = [...nav.querySelectorAll('.item')];
+const liq = [...document.querySelectorAll('#liq i:not(.core)')], core = document.querySelector('#liq .core');
+const GAP = 8, BEAD = 44;
+const HOME = 5, SMALL = 30;   // where a drop hides: 4px in from the orb's right edge, 34px wide, inside the 44px orb
+// each item's resting offset from the bead's right edge, and its width
+let slots = [], widths = [];
+function measure() {
+  // the natural width of each capsule, measured with the animated width taken off; otherwise a
+  // resize event after the first frame (Safari fires one on load) reads back the 30px drop and
+  // every capsule is stuck as a circle with its label cut
+  let x = BEAD + GAP;
+  widths = items.map((el) => { const was = el.style.width; el.style.width = ''; const w = el.offsetWidth; el.style.width = was; return w; });
+  slots = widths.map((w) => { const s = x; x += w + GAP; return s; });
+}
+measure(); addEventListener('resize', measure);
+// one spring for each drop's travel (loose, it overshoots), one for its width (a bead becomes a pill), one for clearing into glass
+const x = items.map(() => new Spring(4, { stiffness: 170, damping: 14 }));
+const OUT = { stiffness: 170, damping: 14 }, BACK = { stiffness: 150, damping: 9 };
+const wd = items.map(() => new Spring(34, { stiffness: 220, damping: 18 }));
+const clear = items.map(() => new Spring(0, { stiffness: 420, damping: 26 }));
+const lean = new Spring(0, { stiffness: 300, damping: 14 });
+// the flow front: how far from the bead the liquid has gushed. Loose, so it
+// overshoots the end of the row and sloshes back
+const front = new Spring(0, { stiffness: 55, damping: 9 });
+const swell = new Spring(1, { stiffness: 160, damping: 26 });
+let open = false, phase = items.map(() => 'in'), clock = 0, due = items.map(() => 0), merged = items.map(() => false);
+function setOpen(o) {
+  if (o === open) return; open = o; drop.setAttribute('aria-expanded', String(o)); nav.classList.toggle('open', o);
+  // opening: each is due once the one before it has cleared its parent; closing: last first
+  due = items.map((_, i) => clock + stagger(o ? i : items.length - 1 - i, items.length, o ? 110 : 38));
+  x.forEach((sp) => { sp.k = o ? OUT.stiffness : BACK.stiffness; sp.c = o ? OUT.damping : BACK.damping; });
+  merged = items.map(() => false);
+  if (o) { lean.set(0).to(1); setTimeout(() => lean.to(0), 120); } else { lean.set(0); }
+  // the row's total reach; the front is measured from its far left end
+  front.to(o ? slots[slots.length - 1] + widths[widths.length - 1] + 30 : 0);
+}
+nav.addEventListener('pointerenter', () => setOpen(true));
+nav.addEventListener('pointerleave', () => setOpen(false));
+drop.addEventListener('click', () => setOpen(!open));
+addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+loop((dt, t) => {
+  clock = t;
+  const F = front.update(dt);
+  items.forEach((el, i) => {
+    if (t >= due[i]) {
+      if (open && phase[i] !== 'out') {
+        // born from the one before: start where its parent is right now, then head for its own slot
+        const parent = i === 0 ? HOME : x[i - 1].v;
+        x[i].set(parent); wd[i].set(SMALL); phase[i] = 'out';
+        if (i === 0) swell.vel -= 1.6;                              // the first leaves the orb: it dips
+      }
+      if (!open && phase[i] !== 'in') phase[i] = 'in';
+      x[i].to(open ? slots[i] : (i === 0 ? HOME : Math.min(x[i - 1].v, slots[i - 1])));
+      wd[i].to(open ? widths[i] : (merged[i] ? SMALL : Math.max(SMALL, widths[i] * 0.8)));
+    }
+    if (!open && phase[i] === 'in') {
+      // the last stretch home is critically damped, and the door snaps shut: a drop that has
+      // reached the orb is set there and stays, so nothing can swing back out after the close
+      if (x[i].v < 30) { x[i].c = 24; wd[i].set(SMALL); }
+      if (x[i].v < HOME + 2.5 && x[i].target === HOME) { x[i].set(HOME); }
+    }
+    const px = x[i].update(dt), w = wd[i].update(dt);
+    if (!open && phase[i] === 'in' && !merged[i]) {
+      const into = i === 0 ? HOME : x[i - 1].v;
+      if (Math.abs(px - into) < 14) {
+        merged[i] = true;
+        if (i > 1) { wd[i - 1].vel += 260; x[i - 1].vel -= 120; }   // the one before takes the hit: bulges, nudged inward (never the first, which is at the orb's door)
+      }
+    }
+    // the liquid drop: slides out, widening from a bead to a pill
+    liq[i].style.transform = `translateX(${(-px).toFixed(2)}px)`;
+    liq[i].style.width = w.toFixed(1) + 'px';
+    // the gradient is pinned to the page and slides RIGHT with time, so the colour runs left to right like liquid
+    const slide = (t * 38) % 760;
+    liq[i].style.backgroundPosition = `${(-(760 - px - w) + slide).toFixed(1)}px 0`;
+    // the gush: the front starts at the far left end of the row and sweeps right toward the bead.
+    // This capsule's left edge sits (total - px - w) from that end; it fills from its left edge as far as the front has come
+    const fill = el.querySelector('.fill');
+    const total = slots[slots.length - 1] + widths[widths.length - 1];
+    const reach = F + (open ? 5 * Math.sin(t * 5.0 + i * 0.9) : 0);
+    const fw = Math.max(0, Math.min(w, reach - (total - px - w)));
+    fill.style.width = fw.toFixed(1) + 'px';
+    fill.style.backgroundPosition = `${(-(760 - px - w) + slide).toFixed(1)}px 0`;
+    // settled and open: clears into glass. The liquid under it fades as the glass comes
+    const settled = open && phase[i] === 'out' && Math.abs(px - slots[i]) < 6 && Math.abs(x[i].vel) < 40;
+    clear[i].to(settled ? 1 : 0);
+    const c = clear[i].update(dt);
+    el.style.transform = `translateX(${(-px).toFixed(2)}px)`;
+    el.style.width = w.toFixed(1) + 'px';
+    el.style.opacity = c.toFixed(3);
+    const hidden = Math.max(0, Math.min(1, (px - HOME) / 14));   // fully hidden within 14px of home
+    liq[i].style.opacity = ((1 - c * 0.92) * hidden).toFixed(3);
+  });
+  const l = lean.update(dt);
+  // closing: the orb swells with what it has taken back, fullest as the last drop lands, then eases home
+  if (!open) { const home = merged.filter(Boolean).length; swell.to(home === items.length ? 1 : 1 + 0.07 * home); }
+  const breathe = 1, sw = swell.update(dt);
+  const tf = `translateX(${(-6 * l).toFixed(2)}px) scale(${(breathe * sw * (1 + 0.22 * l)).toFixed(3)}, ${(breathe * sw * (1 - 0.14 * l)).toFixed(3)})`;
+  drop.style.transform = tf;
+  // the liquid core rides with the orb, and carries the same colour as the flow
+  core.style.transform = `translateX(${(-6 * l).toFixed(2)}px)`; core.style.backgroundPosition = `${(-(760 - 44) + (t * 38) % 760).toFixed(1)}px 0`;
+  // the hover zone only needs to cover what is out
+  const reach = Math.max(...x.map((s) => s.v)) + 60;
+  hot.style.left = `calc(100% - ${(reach + 24 + 44).toFixed(0)}px)`;
+});
+</script>

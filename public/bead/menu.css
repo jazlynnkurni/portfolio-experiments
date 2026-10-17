@@ -1,0 +1,41 @@
+/* menu lab: the page every prototype sits on, and the glass.
+   Paper ground, her inks, a few soft colour fields behind so the glass has
+   something to refract, and a column of sample text so the menu is read
+   against a real page rather than a void. */
+:root{--paper:#FAF9F7;--ink:#14171B;--ink2:rgba(20,23,27,.66);--ink3:rgba(20,23,27,.42);--hair:rgba(20,23,27,.14);--touch:#4c5be4;
+  --jak:"Plus Jakarta Sans","Helvetica Neue",Helvetica,Arial,sans-serif;--hel:"Helvetica Neue",Helvetica,Arial,sans-serif}
+html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:400 15px/1.6 var(--hel);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+/* the colour behind the glass */
+.field{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.field i{position:absolute;border-radius:50%;filter:blur(60px);opacity:.75;animation:drift 26s ease-in-out infinite alternate}
+.field i:nth-child(1){width:46vw;height:46vw;left:-8vw;top:-14vw;background:#F7D9C4}
+.field i:nth-child(2){width:38vw;height:38vw;right:-6vw;top:4vw;background:#D9DDF5;animation-delay:-9s}
+.field i:nth-child(3){width:44vw;height:44vw;left:28vw;bottom:-22vw;background:#DCEBE0;animation-delay:-17s}
+@keyframes drift{to{transform:translate(4vw,3vw) scale(1.08)}}
+/* the sample page */
+.page{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:168px 24px 120px}
+.page .label{font-family:var(--jak);font-weight:600;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3)}
+.page h1{font:500 clamp(30px,4.4vw,46px)/1.12 var(--jak);letter-spacing:-.012em;margin:12px 0 0;text-wrap:balance}
+.page p{color:var(--ink2);margin:20px 0 0;max-width:56ch}
+.page .plate{margin-top:40px;aspect-ratio:3/2;border-radius:20px;background:linear-gradient(135deg,#EFE4DA,#DCDFF0 55%,#E4EEE6);outline:1px solid var(--hair);outline-offset:-1px}
+.back{position:fixed;left:24px;top:22px;z-index:20;font-size:12.5px;color:var(--ink3)}
+.back a:hover{color:var(--touch)}
+.back b{font-weight:500;color:var(--ink);margin-left:6px}
+.back span{margin-left:8px}
+@media(max-width:1500px){.back span{display:none}}   /* the blurb runs under a centred menu on narrower windows */
+/* LIQUID GLASS. Four layers in one element: the blurred, saturated page
+   behind; a milky body; a bright rim that reads as the light bending at the
+   edge; and a specular that sits top-left like a window reflected in a
+   drop. The shadow is tinted, soft and low. */
+.glass{position:relative;background:rgba(255,255,255,.34);
+  -webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),inset 0 -1px 0 rgba(255,255,255,.25),inset 1px 0 0 rgba(255,255,255,.35),inset -1px 0 0 rgba(255,255,255,.35),
+    0 1px 2px rgba(20,23,27,.06),0 12px 32px rgba(20,23,27,.10);
+  outline:1px solid rgba(255,255,255,.55);outline-offset:-1px}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.65) 0%,rgba(255,255,255,.12) 38%,rgba(255,255,255,0) 60%,rgba(255,255,255,.22) 100%)}
+.glass::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(20,23,27,.04)}
+.glass .l{position:relative;font-family:var(--jak);font-weight:500;font-size:13.5px;letter-spacing:-.005em;color:var(--ink);white-space:nowrap}
+@media(prefers-reduced-motion:reduce){.field i{animation:none}}

@@ -23,6 +23,14 @@ export const EXPERIMENTS: ExperimentEntry[] = [
     weight: "heavy",
   },
   {
+    slug: "bead",
+    title: "Bead",
+    blurb:
+      "A menu that is one drop of glass until you reach it. A shader lens in the corner buds: the first option pulls out of it stretching a neck of liquid, the next pulls out of that one, and the lens's colour gushes left to right through the capsules as they settle into glass. Leave and they crash back into each other and into the orb, which swells as it takes them. Every motion is a spring; five colourways along the bottom.",
+    interactions: ["hover the orb", "pick a colourway"],
+    weight: "light",
+  },
+  {
     slug: "out-of-office",
     title: "Out of Office",
     blurb:

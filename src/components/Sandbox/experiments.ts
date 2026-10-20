@@ -15,6 +15,14 @@ export type ExperimentEntry = {
  */
 export const EXPERIMENTS: ExperimentEntry[] = [
   {
+    slug: "pear",
+    title: "Pear",
+    blurb:
+      "A watercolour pear lying on white, repainted twelve times a second so its edges and bruises keep the boil of a hand-painted loop. Ants come and go only from under its rim: each slides out small and wriggling, roams around the fruit without ever crossing it, and slips back under when it is done. Touch the pear and it rustles on a spring and a random handful more come pouring out; leave and they all head for the edge and go home.",
+    interactions: ["hover the pear", "move across it", "leave and watch them go"],
+    weight: "light",
+  },
+  {
     slug: "porcelain",
     title: "Porcelain",
     blurb:

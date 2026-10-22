@@ -15,30 +15,6 @@ export type ExperimentEntry = {
  */
 export const EXPERIMENTS: ExperimentEntry[] = [
   {
-    slug: "pear",
-    title: "Pear",
-    blurb:
-      "A watercolour pear lying on white, repainted twelve times a second so its edges and bruises keep the boil of a hand-painted loop. Ants come and go only from under its rim: each slides out small and wriggling, roams around the fruit without ever crossing it, and slips back under when it is done. Touch the pear and it rustles on a spring and a random handful more come pouring out; leave and they all head for the edge and go home.",
-    interactions: ["hover the pear", "move across it", "leave and watch them go"],
-    weight: "light",
-  },
-  {
-    slug: "porcelain",
-    title: "Porcelain",
-    blurb:
-      "The frosted-porcelain look of a rednote calendar, live. A thin transmissive wall at high roughness, warm contents glowing through it, three soft lights and no shadows. Five vessels, five pastel fades baked into the clay, and a jelly mode that is clearer, glossier and wobbles. Press shape and drag the profile points; the pot reshapes under your hand.",
-    interactions: ["drag to turn", "scroll closer", "shape to pull the profile"],
-    weight: "heavy",
-  },
-  {
-    slug: "bead",
-    title: "Bead",
-    blurb:
-      "A menu that is one drop of glass until you reach it. A shader lens in the corner buds: the first option pulls out of it stretching a neck of liquid, the next pulls out of that one, and the lens's colour gushes left to right through the capsules as they settle into glass. Leave and they crash back into each other and into the orb, which swells as it takes them. Every motion is a spring; five colourways along the bottom.",
-    interactions: ["hover the orb", "pick a colourway"],
-    weight: "light",
-  },
-  {
     slug: "out-of-office",
     title: "Out of Office",
     blurb:
@@ -69,6 +45,30 @@ export const EXPERIMENTS: ExperimentEntry[] = [
       "Soap film in a shader. The colour is thin-film interference, so the bands come from the film's thickness cancelling some wavelengths and reinforcing others, and they drift as the film thins and drains under its own weight.",
     interactions: ["move pointer", "watch it drain"],
     weight: "heavy",
+  },
+  {
+    slug: "pear",
+    title: "Pear",
+    blurb:
+      "A watercolour pear lying on white, repainted twelve times a second so its edges and bruises keep the boil of a hand-painted loop. Ants come and go only from under its rim: each slides out small and wriggling, roams around the fruit without ever crossing it, and slips back under when it is done. Touch the pear and it rustles on a spring and a random handful more come pouring out; leave and they all head for the edge and go home.",
+    interactions: ["hover the pear", "move across it", "leave and watch them go"],
+    weight: "light",
+  },
+  {
+    slug: "porcelain",
+    title: "Porcelain",
+    blurb:
+      "The frosted-porcelain look of a rednote calendar, live. A thin transmissive wall at high roughness, warm contents glowing through it, three soft lights and no shadows. Five vessels, five pastel fades baked into the clay, and a jelly mode that is clearer, glossier and wobbles. Press shape and drag the profile points; the pot reshapes under your hand.",
+    interactions: ["drag to turn", "scroll closer", "shape to pull the profile"],
+    weight: "heavy",
+  },
+  {
+    slug: "bead",
+    title: "Bead",
+    blurb:
+      "A menu that is one drop of glass until you reach it. A shader lens in the corner buds: the first option pulls out of it stretching a neck of liquid, the next pulls out of that one, and the lens's colour gushes left to right through the capsules as they settle into glass. Leave and they crash back into each other and into the orb, which swells as it takes them. Every motion is a spring; five colourways along the bottom.",
+    interactions: ["hover the orb", "pick a colourway"],
+    weight: "light",
   },
   {
     slug: "soft",

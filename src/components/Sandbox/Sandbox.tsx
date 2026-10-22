@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import { useLayoutEffect,
   useCallback,
   useEffect,
   useMemo,
@@ -79,14 +79,18 @@ function ExperimentCard({
   register,
 }: CardProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const [scale, setScale] = useState(0.7);
+  // the scale is unknown until the card has been measured; nothing live is shown before that, so a phone never
+  // sees the plate at a guessed scale (it used to paint at .7, zoomed in, then snap down to ~.28)
+  const [scale, setScale] = useState(0);
   const [ready, setReady] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // keep the scale locked to the card width
-  useEffect(() => {
+  // keep the scale locked to the card width; measured before the first paint, then kept in step
+  useLayoutEffect(() => {
     const node = stageRef.current;
     if (!node) return;
+    const w0 = node.getBoundingClientRect().width;
+    if (w0 > 0) setScale(w0 / FRAME_W);
     const ro = new ResizeObserver(([box]) => {
       const width = box.contentRect.width;
       if (width > 0) setScale(width / FRAME_W);
@@ -122,14 +126,14 @@ function ExperimentCard({
         ref={stageRef}
         data-plate=""
         className={styles.stage}
-        style={{ height: FRAME_H * scale }}
+        style={{ aspectRatio: `${FRAME_W} / ${FRAME_H}` }}
       >
         {/* the still shows from the first frame; the live plate fades in over it once it has loaded */}
         <img className={styles.poster} src={`/sandbox-posters/${entry.slug}.jpg`} alt="" aria-hidden="true" decoding="async" fetchPriority="high"
              onError={(e) => { e.currentTarget.style.display = "none"; }} />
         {ready ? null : <p className={styles.skeleton}>{entry.title}</p>}
 
-        {live ? (
+        {live && scale > 0 ? (
           <iframe
             key={reloadKey}
             className={styles.frame}

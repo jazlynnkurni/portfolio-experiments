@@ -123,4 +123,4 @@ export function Footer() {
 }
 
 /* runs before the page paints, so the first frame is already the right mode */
-export const THEME_INIT = `(function(){var q=new URLSearchParams(location.search).get('theme');var t=q;try{t=t||localStorage.getItem('theme');}catch(e){}if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);if(q){try{localStorage.setItem('theme',q);}catch(e){}}})();`;
+export const THEME_INIT = `(function(){var q=new URLSearchParams(location.search).get('theme');var t=q;try{t=t||localStorage.getItem('theme');}catch(e){}if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if((matchMedia('(max-width:640px)').matches||matchMedia('(hover:none)').matches))t='light';document.documentElement.setAttribute('data-theme',t);if(q){try{localStorage.setItem('theme',q);}catch(e){}}})();`;

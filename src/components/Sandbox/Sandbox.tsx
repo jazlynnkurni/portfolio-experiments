@@ -384,9 +384,8 @@ export default function Sandbox() {
       <div className="wrap">
         <div className={styles.head}>
           <div>
-            <div className="label">Sandbox</div>
-            <h1 className={styles.title}>Things I made to see if they<br />could be made.</h1>
-            <p className={styles.lede}>Every plate is live. Hover one to hand it your pointer.</p>
+            <h1 className={styles.title}>More of my charming designs</h1>
+            <p className={styles.lede}>Things I built while waiting for my AI to work lol.</p>
           </div>
         </div>
       </div>

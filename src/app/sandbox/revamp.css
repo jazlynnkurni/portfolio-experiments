@@ -96,3 +96,8 @@ html.sheet-open{overflow:hidden}
 /* the mode change: every colour eases to the other one */
 html.theming,html.theming *{transition:background-color .5s ease,color .5s ease,border-color .5s ease,outline-color .5s ease,box-shadow .5s ease,fill .5s ease,stroke .5s ease!important}
 @media(prefers-reduced-motion:reduce){html.theming,html.theming *{transition:none!important}}
+
+/* tabbar: phones have no top nav on the sandbox; the bottom bar is the navigation */
+@media (max-width: 640px) {
+  .rv nav { display: none !important; }
+}

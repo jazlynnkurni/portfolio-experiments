@@ -330,3 +330,9 @@
 @media (prefers-reduced-motion: reduce) {
   .sheet, .sheetBg { transition: opacity 0.2s ease; }
 }
+
+/* the still under every plate: there at once, so a card is never empty while its live plate loads */
+.poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; z-index: 0; }
+.stage > iframe { position: relative; z-index: 1; opacity: 0; transition: opacity .35s ease; }
+.stage > iframe[data-ready="true"] { opacity: 1; }
+.stage:has(.poster) .skeleton { display: none; }

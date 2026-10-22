@@ -124,6 +124,9 @@ function ExperimentCard({
         className={styles.stage}
         style={{ height: FRAME_H * scale }}
       >
+        {/* the still shows from the first frame; the live plate fades in over it once it has loaded */}
+        <img className={styles.poster} src={`/sandbox-posters/${entry.slug}.jpg`} alt="" aria-hidden="true" decoding="async" fetchPriority="high"
+             onError={(e) => { e.currentTarget.style.display = "none"; }} />
         {ready ? null : <p className={styles.skeleton}>{entry.title}</p>}
 
         {live ? (

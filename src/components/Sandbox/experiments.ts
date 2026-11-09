@@ -15,6 +15,14 @@ export type ExperimentEntry = {
  */
 export const EXPERIMENTS: ExperimentEntry[] = [
   {
+    slug: "boxing",
+    title: "Boxing",
+    blurb:
+      "The boxing GIF in code. Two fighters made only of clothes, wide trousers, a knit band or a shirt and tie, shoes, and two fists that float where hands would be, hinged like paper puppets: hips bob, feet shuffle, one jabs and the other rocks back. Seen on white through the Out of Office footer's glass: a purple backing silhouette drawn in the same instant, a warm bloom, two colour plates that never quite agree, and a floor that reflects them. Click to throw a punch.",
+    interactions: ["click to punch", "watch the floor"],
+    weight: "light",
+  },
+  {
     slug: "out-of-office",
     title: "Out of Office",
     blurb:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import GlassCompass from "./GlassCompass";
 import styles from "./Showcase.module.css";
 
@@ -9,16 +9,39 @@ type ShowcaseProps = {
   animate?: boolean;
 };
 
+// Embedded in another page (the sandbox shows every experiment in an
+// iframe), the tile is shown small, so it runs the lighter embed variant.
+function isEmbedded(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true; // cross-origin parent: certainly embedded
+  }
+}
+
 // The finished tile, centred, with a soft drop shadow and a faint floor
 // reflection: the same treatment as the horse folder lab. The reflection is
 // the rendered tile itself, copied each frame at half resolution, mirrored
 // about the tile's bottom edge, blurred, faded out.
 //
 // Hover (a tap on touch screens) sets the hands turning and the light moving;
-// leaving unwinds it all back to rest.
-export default function Showcase({ variant = "full", animate = true }: ShowcaseProps) {
+// leaving glides it all home. Off screen, nothing renders.
+export default function Showcase({ variant, animate = true }: ShowcaseProps) {
+  const scene = useRef<HTMLDivElement>(null);
   const mirror = useRef<HTMLCanvasElement>(null);
   const [active, setActive] = useState(false);
+  const [visible, setVisible] = useState(true);
+  // decided once, on the client, before the canvas builds anything
+  const [resolved] = useState<"full" | "embed">(() => variant ?? (isEmbedded() ? "embed" : "full"));
+
+  useEffect(() => {
+    const el = scene.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { rootMargin: "120px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const onFrame = useCallback((source: HTMLCanvasElement) => {
     const target = mirror.current;
@@ -36,9 +59,15 @@ export default function Showcase({ variant = "full", animate = true }: ShowcaseP
   }, []);
 
   return (
-    <div className={styles.scene}>
+    <div ref={scene} className={styles.scene}>
       <canvas ref={mirror} className={styles.mirror} aria-hidden="true" />
-      <GlassCompass className={styles.tile} variant={variant} animate={animate} active={active} onFrame={onFrame} />
+      <GlassCompass
+        className={styles.tile}
+        variant={resolved}
+        animate={animate && visible}
+        active={active && visible}
+        onFrame={onFrame}
+      />
       {/* hover area cut to the tile's rounded silhouette, above the canvas */}
       <div
         className={styles.hit}

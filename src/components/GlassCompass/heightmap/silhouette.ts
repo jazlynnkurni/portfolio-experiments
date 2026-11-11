@@ -40,14 +40,15 @@ export function edgeDistance(x: number, y: number, p: SilhouetteParams = DEFAULT
 }
 
 // Distance from the centre to the outline along direction (dx, dy).
-export function boundaryRadius(dx: number, dy: number, p: SilhouetteParams = DEFAULT): number {
+export function boundaryRadius(dx: number, dy: number, p: SilhouetteParams = DEFAULT, iterations = 32): number {
   const len = Math.hypot(dx, dy);
   if (len === 0) return 0;
   const ux = dx / len;
   const uy = dy / len;
-  let lo = 0;
+  // the outline lies between the inscribed and the corner radius
+  let lo = (p.size / 2) * 0.7;
   let hi = (p.size / 2) * Math.SQRT2;
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < iterations; i++) {
     const mid = (lo + hi) / 2;
     if (edgeDistance(ux * mid, uy * mid, p) > 0) lo = mid;
     else hi = mid;

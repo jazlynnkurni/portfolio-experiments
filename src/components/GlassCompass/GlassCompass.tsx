@@ -50,7 +50,7 @@ function Tile({ variant, glass }: { variant: Variant; glass: GlassParams }) {
   const { geometry, maps, absorption, roughness, relief } = useMemo(() => {
     const maps = buildTileMaps(LAYERS, res.heightMap);
     return {
-      geometry: createTileGeometry(maps.coarseField, res.segments),
+      geometry: createTileGeometry(maps.height, maps.res, res.segments),
       maps,
       absorption: buildAbsorptionMap(noColour, 2),
       roughness: buildRoughnessMap(maps.height, maps.res),

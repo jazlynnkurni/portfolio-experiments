@@ -1,0 +1,44 @@
+/* Shadow and floor reflection match the horse folder lab (labs/horse-folder-lab):
+   a wide soft shadow plus a tight contact shadow, both in the 736 reference grid,
+   and the object mirrored about its bottom edge at 12% opacity, slightly blurred,
+   fading out over the third of its height nearest the floor. */
+.scene {
+  /* the lab's folder fills ~75% of its 78vmin box; this tile fills all of
+     its box, so the box is 75% as big for the same presence */
+  --s: min(58vmin, 510px);
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  /* the reflection hangs below, so the pair is centred as one */
+  margin-bottom: calc(var(--s) * 0.24);
+}
+
+.hit {
+  position: absolute;
+  inset: 0;
+  /* the tile's rounded silhouette, so the corners outside it never trigger hover */
+  clip-path: inset(0 round calc(var(--s) * 120 / 736));
+}
+
+.tile {
+  position: absolute !important;
+  inset: 0;
+  /* the lab's two shadows (sigma 11 and 1.2; CSS blur radius is 2 sigma),
+     made more prominent: deeper, dropped further, firmer contact */
+  filter: drop-shadow(0 calc(var(--s) * 16 / 736) calc(var(--s) * 30 / 736) rgba(0, 0, 0, 0.26))
+    drop-shadow(0 calc(var(--s) * 2 / 736) calc(var(--s) * 3 / 736) rgba(0, 0, 0, 0.22));
+}
+
+.mirror {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  transform: scaleY(-1);
+  opacity: 0.12;
+  filter: blur(calc(var(--s) * 0.007));
+  -webkit-mask-image: linear-gradient(to bottom, transparent 64%, #000 99.8%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 64%, #000 99.8%, transparent 100%);
+  pointer-events: none;
+}

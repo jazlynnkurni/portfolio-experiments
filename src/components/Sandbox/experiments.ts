@@ -170,36 +170,4 @@ export const EXPERIMENTS: ExperimentEntry[] = [
     interactions: ["sliders", "buttons"],
     weight: "light",
   },
-  {
-    slug: "fabric-clock",
-    title: "Fabric clock",
-    blurb:
-      "A 12-sided clock face woven as cloth in matter.js. Tension-only yarns, stiff along the weave and soft on the bias, so the hands catch the fabric and drag it and wrinkles bloom wherever it goes into compression. Cut it loose and it falls.",
-    interactions: ["drag the cloth", "drop it", "wind the hands"],
-    weight: "light",
-  },
-  {
-    slug: "cloth-form",
-    title: "Cloth form",
-    blurb:
-      "One sheet of cloth, folded into a closed loop and stitched, that falls into the shape of a staircase and holds it. The drop is only the entrance: what it lands as is the object, taut and complete with nothing inside it. Pick another form and it lets go, falls, and is caught by that one.",
-    interactions: ["staircase, chair, sink", "move to turn it", "drag the cloth"],
-    weight: "light",
-  },
-  {
-    slug: "pattern-panels",
-    title: "Pattern panels",
-    blurb:
-      "A door scrolled apart into the flat pieces it was sewn from. Panels are staggered and never deduped, so the seams pay out like real stitching, and hovering a piece raises its density instead of selecting it.",
-    interactions: ["scroll to unpick", "drag", "hover a piece"],
-    weight: "light",
-  },
-  {
-    slug: "lit-shade",
-    title: "Lit shade",
-    blurb:
-      "The night register. Crushed velvet with a bulb inside it, shaded cell by cell off distance to the filament and two octaves of pile noise, so density inverts: bright core, dark ribs, glow at the turning rim. Every strand of fringe is a matter pendulum, the pointer is a draft, and the moth is the one thing nobody designed.",
-    interactions: ["move to make a draft", "switch the bulb"],
-    weight: "light",
-  },
 ];

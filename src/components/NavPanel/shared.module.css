@@ -1,0 +1,206 @@
+/* Nav panel rhythm, declared 2026-11-21 before any direction was built.
+   The golden standard: 8pt grid, 4pt only inside a control, container 1280,
+   gutters 24 phone and 64 desktop, the gap between groups at least 2x the gap
+   within, type scale 1.25 from 16. All five directions read this one set and
+   no direction sets its own gap. Phone width is anything under 768px. */
+.rhythm {
+  --np-container: 1280px;
+  --np-gutter: 24px;
+  --np-bar: 64px;
+  --np-hit: 44px;
+  --np-link-x: 16px;
+  --np-in: 4px;
+  --np-group: 32px;
+  --np-pad: 4px;
+  --np-row: 48px;
+  --np-r-box: 16px;
+
+  --np-t-0: 12.8px;
+  --np-t-1: 16px;
+  --np-t-2: 20px;
+  --np-t-3: 25px;
+  --np-t-4: 31.25px;
+  --np-t-5: 39.06px;
+
+  --np-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --np-state: 160ms;
+
+  --np-surface: #ffffff;
+  --np-ink: #171717;
+  --np-ink-2: rgba(23, 23, 23, 0.64);
+  --np-wash: rgba(23, 23, 23, 0.06);
+  --np-press: rgba(23, 23, 23, 0.1);
+  --np-hairline: rgba(0, 0, 0, 0.06);
+  --np-cream: #fff5ef;
+  --np-orange: #c97836;
+  --np-orange-dark: #9a4c19;
+  --np-focus: #9a4c19;
+  --np-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06),
+    0 2px 4px 0 rgba(0, 0, 0, 0.04);
+
+  font-family: var(--font-sans);
+  color: var(--np-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (min-width: 768px) {
+  .rhythm {
+    --np-gutter: 64px;
+  }
+}
+
+/* a fine pointer gets the 40px desktop target, touch keeps 44 */
+@media (hover: hover) and (pointer: fine) {
+  .rhythm {
+    --np-hit: 40px;
+  }
+}
+
+/* one focus ring for every control in every direction: 2px, 2px outside the box */
+.ring:focus-visible {
+  outline: 2px solid var(--np-focus);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  z-index: 100;
+  top: 12px;
+  left: var(--np-gutter);
+  display: inline-flex;
+  align-items: center;
+  height: var(--np-hit);
+  padding-inline: var(--np-link-x);
+  border-radius: 999px;
+  background: var(--np-ink);
+  color: var(--np-surface);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.skip:not(:focus-visible) {
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: var(--np-hit);
+  border-radius: 8px;
+  color: var(--np-ink);
+  font-size: var(--np-t-1);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.brandMark {
+  display: block;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--np-orange);
+}
+
+.brandLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* icon-only button: no tile in any state, the glyph colour is the feedback */
+.iconBtn {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--np-hit);
+  height: var(--np-hit);
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--np-ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.iconBtn:active,
+.iconBtn[aria-expanded="true"] {
+  background: transparent;
+  color: var(--np-ink);
+}
+
+@media (hover: hover) {
+  .iconBtn:hover {
+    background: transparent;
+    color: var(--np-ink);
+  }
+}
+
+/* icon swap cell: the cell equals the glyph, both glyphs live in it and
+   cross-fade (scale .25 to 1, opacity, blur 4px to 0), never a rotation */
+.swap {
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--swap, 20px);
+  height: var(--swap, 20px);
+}
+
+.swap > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition:
+    opacity var(--np-state) var(--np-ease),
+    scale var(--np-state) var(--np-ease),
+    filter var(--np-state) var(--np-ease);
+}
+
+.swap > svg[data-on="false"] {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap > svg {
+    transition: opacity var(--np-state) var(--np-ease);
+  }
+
+  .swap > svg[data-on="false"] {
+    scale: 1;
+    filter: none;
+  }
+}
+
+.check {
+  display: block;
+  flex: none;
+  color: var(--np-orange-dark);
+}
+
+.main {
+  display: block;
+  min-width: 0;
+}
+
+.main:focus {
+  outline: none;
+}

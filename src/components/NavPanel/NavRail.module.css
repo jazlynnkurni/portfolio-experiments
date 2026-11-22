@@ -1,0 +1,187 @@
+/* 5 · Rail. Every gap comes from the rhythm set in shared.module.css. */
+.root {
+  --rail-w: 256px;
+  --rail-pad: 16px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  min-height: 100dvh;
+  background: var(--np-surface);
+}
+
+.embed {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-group);
+  height: 100dvh;
+  padding: 0 var(--rail-pad) 24px;
+  box-shadow: 1px 0 0 var(--np-hairline);
+}
+
+.embed .rail {
+  height: 100%;
+}
+
+.embed .main {
+  height: 100%;
+  overflow: auto;
+}
+
+/* the brand mark lines up with the labels below it */
+.railBrand {
+  display: flex;
+  align-items: center;
+  height: var(--np-bar);
+  padding-inline: var(--np-link-x);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-in);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* the label never moves: hover washes the row, the marker slides on the rail's edge */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--np-hit);
+  padding-inline: var(--np-link-x);
+  border-radius: 8px;
+  color: var(--np-ink-2);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row[aria-current="page"] {
+  color: var(--np-orange-dark);
+}
+
+.row:active {
+  background: var(--np-press);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--np-wash);
+    color: var(--np-ink);
+  }
+
+  .row[aria-current="page"]:hover {
+    color: var(--np-orange-dark);
+  }
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marker {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: calc(-1 * var(--rail-pad));
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--np-orange);
+}
+
+/* phone bar, shown under 768 */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  height: var(--np-bar);
+  padding-inline: var(--np-gutter);
+  background: var(--np-surface);
+  box-shadow: 0 1px 0 var(--np-hairline);
+}
+
+.menuBtn {
+  margin-inline-start: calc((20px - var(--np-hit)) / 2);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(23, 23, 23, 0.24);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-group);
+  width: min(320px, calc(100% - 56px));
+  padding: 0 var(--rail-pad) 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--np-surface);
+  box-shadow: var(--np-shadow);
+}
+
+.embed .scrim,
+.embed .drawer {
+  position: absolute;
+}
+
+.drawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: var(--np-bar);
+  padding-inline-start: var(--np-link-x);
+}
+
+.closeBtn {
+  margin-inline-end: calc((20px - var(--np-hit)) / 2 + var(--np-link-x) - var(--rail-pad));
+}
+
+@media (max-width: 767.98px) {
+  .root {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .rail {
+    display: none;
+  }
+
+  .top {
+    display: flex;
+  }
+}
+
+@media (min-width: 768px) {
+  .scrim,
+  .drawer {
+    display: none;
+  }
+}

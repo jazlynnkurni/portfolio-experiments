@@ -1,0 +1,182 @@
+/* 1 · Bar. Every gap comes from the rhythm set in shared.module.css. */
+.root {
+  position: relative;
+  min-height: 100dvh;
+  background: var(--np-surface);
+}
+
+.embed {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--np-surface);
+  box-shadow: 0 1px 0 var(--np-hairline);
+}
+
+.embed .bar {
+  position: relative;
+  flex: none;
+}
+
+.embed .main {
+  flex: 1;
+  overflow: auto;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--np-group);
+  max-width: var(--np-container);
+  height: var(--np-bar);
+  margin: 0 auto;
+  padding-inline: var(--np-gutter);
+}
+
+.links {
+  display: flex;
+  gap: var(--np-in);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* the label never moves: only colour changes, the pill slides behind it */
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--np-hit);
+  padding-inline: var(--np-link-x);
+  border-radius: 999px;
+  color: var(--np-ink-2);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link[aria-current="page"] {
+  color: var(--np-orange-dark);
+}
+
+.link:active {
+  color: var(--np-ink);
+}
+
+@media (hover: hover) {
+  .link:hover {
+    color: var(--np-ink);
+  }
+
+  .link[aria-current="page"]:hover {
+    color: var(--np-orange-dark);
+  }
+}
+
+.pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--np-cream);
+}
+
+.label {
+  position: relative;
+  z-index: 1;
+}
+
+/* phone: the links fold into the menu button */
+.menuBtn {
+  display: none;
+  margin-inline-end: calc((20px - var(--np-hit)) / 2);
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: var(--np-gutter);
+  z-index: 20;
+  width: min(280px, calc(100% - 2 * var(--np-gutter)));
+  overflow: hidden;
+  border-radius: var(--np-r-box);
+  background: var(--np-surface);
+  box-shadow: var(--np-shadow);
+}
+
+/* precise box: no inset, the rows run edge to edge and the box clips them */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--np-row);
+  padding-inline: var(--np-link-x);
+  color: var(--np-ink);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row[aria-current="page"] {
+  color: var(--np-orange-dark);
+}
+
+.row:active {
+  background: var(--np-press);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--np-focus);
+  outline-offset: -2px;
+  background: var(--np-wash);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--np-wash);
+  }
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767.98px) {
+  .desk {
+    display: none;
+  }
+
+  .menuBtn {
+    display: inline-grid;
+  }
+}
+
+@media (min-width: 768px) {
+  .panel {
+    display: none;
+  }
+}

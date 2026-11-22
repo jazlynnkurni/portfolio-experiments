@@ -1,0 +1,160 @@
+/* 3 · Steps aside. Every gap comes from the rhythm set in shared.module.css. */
+.root {
+  --hdr: var(--np-bar);
+  position: relative;
+  min-height: 100dvh;
+  background: var(--np-surface);
+}
+
+.embed {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--np-surface);
+  box-shadow: 0 1px 0 var(--np-hairline);
+  transition: translate 200ms var(--np-ease);
+}
+
+.bar[data-hidden="true"] {
+  translate: 0 -100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+}
+
+/* embed: the header lies over its own scrolling page */
+.embed .bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+}
+
+.embed .main {
+  height: 100%;
+  padding-top: var(--hdr);
+  overflow: auto;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--np-group);
+  max-width: var(--np-container);
+  height: var(--np-bar);
+  margin: 0 auto;
+  padding-inline: var(--np-gutter);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.nav {
+  min-width: 0;
+}
+
+.scroller {
+  position: relative;
+}
+
+.links {
+  display: flex;
+  gap: var(--np-in);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* the label never moves: only colour changes, the line slides under it */
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--np-hit);
+  padding-inline: var(--np-link-x);
+  border-radius: 8px;
+  color: var(--np-ink-2);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link[aria-current="page"] {
+  color: var(--np-orange-dark);
+}
+
+.link:active {
+  color: var(--np-ink);
+}
+
+@media (hover: hover) {
+  .link:hover {
+    color: var(--np-ink);
+  }
+
+  .link[aria-current="page"]:hover {
+    color: var(--np-orange-dark);
+  }
+}
+
+.line {
+  position: absolute;
+  right: var(--np-link-x);
+  bottom: 4px;
+  left: var(--np-link-x);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--np-orange);
+}
+
+/* phone: brand on its own row, the links on a second row that scrolls sideways */
+@media (max-width: 767.98px) {
+  .root {
+    --hdr: calc(var(--np-bar) + var(--np-hit) + 4px);
+  }
+
+  .inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    height: auto;
+    padding-inline: 0;
+  }
+
+  .brandRow {
+    height: var(--np-bar);
+    padding-inline: var(--np-gutter);
+  }
+
+  .scroller {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  }
+
+  .scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .links {
+    width: max-content;
+    padding: 0 calc(var(--np-gutter) - var(--np-link-x)) 4px;
+  }
+}

@@ -1,0 +1,176 @@
+/* 4 · Index. Every gap comes from the rhythm set in shared.module.css. */
+.root {
+  --idx-row: 80px;
+  position: relative;
+  min-height: 100dvh;
+  background: var(--np-surface);
+}
+
+.embed {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--np-surface);
+  box-shadow: 0 1px 0 var(--np-hairline);
+}
+
+.embed .bar {
+  position: relative;
+  flex: none;
+}
+
+.embed .main {
+  flex: 1;
+  overflow: auto;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--np-group);
+  max-width: var(--np-container);
+  height: var(--np-bar);
+  margin: 0 auto;
+  padding-inline: var(--np-gutter);
+}
+
+/* labelled pill: the label and the chevron cell never move, only colour changes */
+.menu {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: var(--np-hit);
+  padding-inline: var(--np-link-x) 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--np-ink);
+  font: inherit;
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menu:active {
+  background: var(--np-press);
+}
+
+@media (hover: hover) {
+  .menu:hover {
+    background: var(--np-wash);
+  }
+}
+
+.menu[aria-expanded="true"] {
+  background: var(--np-cream);
+  color: var(--np-orange-dark);
+}
+
+.panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  overflow: hidden;
+  border-radius: 0 0 var(--np-r-box) var(--np-r-box);
+  background: var(--np-surface);
+  box-shadow: var(--np-shadow);
+}
+
+/* precise box: no inset, rows run edge to edge; the content inside each row sits on the container */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list > li + li {
+  box-shadow: inset 0 1px 0 var(--np-hairline);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 16px;
+  height: var(--idx-row);
+  padding-inline: max(var(--np-gutter), calc((100% - var(--np-container)) / 2 + var(--np-gutter)));
+  color: var(--np-ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row:active {
+  background: var(--np-press);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--np-focus);
+  outline-offset: -2px;
+  background: var(--np-wash);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: var(--np-wash);
+  }
+}
+
+.num {
+  color: var(--np-ink-2);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.big {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--np-t-5);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row[aria-current="page"] .big {
+  color: var(--np-orange-dark);
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 767.98px) {
+  .root {
+    --idx-row: 64px;
+  }
+
+  .row {
+    grid-template-columns: 32px minmax(0, 1fr) 24px;
+  }
+
+  .big {
+    font-size: var(--np-t-4);
+  }
+}

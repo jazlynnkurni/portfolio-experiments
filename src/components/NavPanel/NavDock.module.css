@@ -1,0 +1,164 @@
+/* 2 · Dock. Every gap comes from the rhythm set in shared.module.css. */
+.root {
+  --dock-h: calc(var(--np-hit) + 2 * var(--np-pad));
+  --dock-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  min-height: 100dvh;
+  background: var(--np-surface);
+}
+
+.embed {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* the page clears the dock: its height, its offset and one 48 step of air */
+.main {
+  padding-bottom: calc(var(--dock-h) + var(--dock-bottom) + 48px);
+}
+
+.embed .main {
+  height: 100%;
+  overflow: auto;
+}
+
+/* concentric: capsule radius = pill radius + capsule padding */
+.dock {
+  position: fixed;
+  z-index: 10;
+  bottom: var(--dock-bottom);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--np-in);
+  max-width: calc(100% - 2 * var(--np-gutter));
+  padding: var(--np-pad);
+  border-radius: calc(var(--np-hit) / 2 + var(--np-pad));
+  background: var(--np-surface);
+  box-shadow: var(--np-shadow);
+  translate: -50% 0;
+}
+
+.embed .dock {
+  position: absolute;
+}
+
+.dockBrand {
+  flex: none;
+  padding-inline: 12px var(--np-link-x);
+  border-radius: 999px;
+}
+
+.divider {
+  display: block;
+  flex: none;
+  width: 1px;
+  height: 24px;
+  background: var(--np-hairline);
+}
+
+.links {
+  display: flex;
+  gap: var(--np-in);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  min-width: 0;
+}
+
+/* the label never moves: hover washes the pill, current colours the label and the dot slides */
+.link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--np-hit);
+  padding-inline: var(--np-link-x);
+  border-radius: 999px;
+  color: var(--np-ink-2);
+  font-size: var(--np-t-1);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link[aria-current="page"] {
+  color: var(--np-orange-dark);
+}
+
+.link:active {
+  background: var(--np-press);
+}
+
+@media (hover: hover) {
+  .link:hover {
+    background: var(--np-wash);
+    color: var(--np-ink);
+  }
+
+  .link[aria-current="page"]:hover {
+    color: var(--np-orange-dark);
+  }
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dot {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--np-orange);
+}
+
+/* the brand at the top of the page shows only on phone */
+.top {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .dock {
+    left: var(--np-gutter);
+    right: var(--np-gutter);
+    max-width: none;
+    translate: none;
+  }
+
+  .dockBrand,
+  .divider {
+    display: none;
+  }
+
+  .links {
+    flex: 1;
+  }
+
+  .item {
+    flex: 1;
+  }
+
+  .link {
+    padding-inline: var(--np-in);
+  }
+
+  .top {
+    display: flex;
+    align-items: center;
+    height: var(--np-bar);
+    padding-inline: var(--np-gutter);
+  }
+}

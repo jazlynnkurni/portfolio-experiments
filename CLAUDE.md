@@ -18,9 +18,15 @@ hardcoded domains.
 - New deps for experiments: gsap, @rive-app/react-canvas. (Spline added later.)
 
 ## Design tokens
-- cream #FFF5EF, burnt orange #C97836, orange-dark #9A4C19
-- Plus Jakarta Sans everywhere: headlines, body, labels, canvas plates.
-  One face, no mixing. Comes from --font-sans in globals.css.
+- Portfolio palette (live since the 2026-09-28 revamp, and what the /sandbox
+  shell uses in src/app/sandbox/revamp.css): paper #FAF9F7, ink #14171B,
+  charcoal #1C1A17, gold #A99939, plum #340414. Use it for anything new.
+- Retired: cream #FFF5EF, burnt orange #C97836, orange-dark #9A4C19. They
+  remain only as legacy tokens in globals.css for older experiments; do not
+  use them in new work.
+- Experiments: Plus Jakarta Sans for headlines, body, labels and canvas
+  plates, one face, from --font-sans in globals.css. The /sandbox shell
+  follows the portfolio head spec instead: Jakarta headings, Helvetica body.
 
 ## Component pattern
 - Each experiment is a self-contained component taking props, on its own route

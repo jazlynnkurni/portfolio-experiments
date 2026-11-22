@@ -15,6 +15,14 @@ export type ExperimentEntry = {
  */
 export const EXPERIMENTS: ExperimentEntry[] = [
   {
+    slug: "glass-compass",
+    title: "Glass compass",
+    blurb:
+      "A compass icon as a piece of antique pressed glass, in WebGL. Every quatrefoil, rosette, stud and pill was measured off a photograph and pressed into one sage-green slab, so the colour comes from how thick the glass is and light bends through each ridge. A warm late-afternoon sun drifts across it. Hover and the ruby and silver hands turn like a clock while the sun circles and sinks, throwing long shadows round every motif without moving a thing; let go and the hands glide home and snap into place.",
+    interactions: ["hover", "let go", "watch the light"],
+    weight: "heavy",
+  },
+  {
     slug: "boxing",
     title: "Boxing",
     blurb:
